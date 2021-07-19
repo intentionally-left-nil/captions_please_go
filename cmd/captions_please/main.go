@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+
+	"github.com/AnilRedshift/captions_please_go/internal/api"
 )
 
 var PORT = 8080
 
 func main() {
+	ctx, err := api.WithSecrets(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
 	handler := func(w http.ResponseWriter, req *http.Request) {
-		io.WriteString(w, "Hello, world!\n")
+		api.WriteResponse(w, api.EncodeCRCToken(ctx, req))
 	}
 
 	http.HandleFunc("/", handler)

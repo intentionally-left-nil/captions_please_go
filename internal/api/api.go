@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 )
 
@@ -16,6 +15,6 @@ func WriteResponse(w http.ResponseWriter, response APIResponse) {
 	w.WriteHeader(response.status)
 	err := json.NewEncoder(w).Encode(response.response)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }

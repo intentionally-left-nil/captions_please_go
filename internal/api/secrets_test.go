@@ -26,10 +26,12 @@ func TestWithSecrects(t *testing.T) {
 	}
 
 	baseEnviron := map[string]string{
-		"TWITTER_CONSUMER_KEY":        "myConsumerKey",
-		"TWITTER_CONSUMER_SECRET":     "myConsumerSecret",
-		"TWITTER_ACCESS_TOKEN":        "myAccessToken",
-		"TWITTER_ACCESS_TOKEN_SECRET": "myAccessTokenSecret",
+		"TWITTER_CONSUMER_KEY":         "myConsumerKey",
+		"TWITTER_CONSUMER_SECRET":      "myConsumerSecret",
+		"TWITTER_ACCESS_TOKEN":         "myAccessToken",
+		"TWITTER_ACCESS_TOKEN_SECRET":  "myAccessTokenSecret",
+		"TWITTER_BEARER_TOKEN":         "myTwitterBearerToken",
+		"CAPTIONS_PLEASE_CALLBACK_URL": "myCallbackURL",
 	}
 
 	for _, test := range tests {

@@ -54,7 +54,16 @@ func status(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	subscriptions, err := client.GetSubscriptions()
+	if err != nil {
+		return err
+	}
+	fmt.Println("Webhooks")
 	printJSON(webhooks)
+	fmt.Println("\nSubscriptions")
+	printJSON(subscriptions)
+
 	return nil
 }
 
@@ -101,5 +110,6 @@ func getClient() twitter.Twitter {
 		secrets.TwitterConsumerKey,
 		secrets.TwitterConsumerSecret,
 		secrets.TwitterAccessToken,
-		secrets.TwitterAccessTokenSecret)
+		secrets.TwitterAccessTokenSecret,
+		secrets.TwitterBearerToken)
 }

@@ -8,7 +8,10 @@ import (
 )
 
 type Secrets struct {
-	ConsumerSecret string
+	TwitterConsumerKey       string
+	TwitterConsumerSecret    string
+	TwitterAccessToken       string
+	TwitterAccessTokenSecret string
 }
 
 type key int
@@ -18,12 +21,15 @@ const theKey key = 0
 // unit test indirections
 var lookupEnv = os.LookupEnv
 
-func WithSecrets(ctx context.Context) (context.Context, error) {
+func NewSecrets() (*Secrets, error) {
 	data := []struct {
 		name string
 		env  string
 	}{
-		{"ConsumerSecret", "TWITTER_CONSUMER_SECRET"},
+		{"TwitterConsumerKey", "TWITTER_CONSUMER_KEY"},
+		{"TwitterConsumerSecret", "TWITTER_CONSUMER_SECRET"},
+		{"TwitterAccessToken", "TWITTER_ACCESS_TOKEN"},
+		{"TwitterAccessTokenSecret", "TWITTER_ACCESS_TOKEN_SECRET"},
 	}
 
 	secrets := Secrets{}
@@ -35,7 +41,15 @@ func WithSecrets(ctx context.Context) (context.Context, error) {
 		}
 		field.Set(reflect.ValueOf(secret))
 	}
-	return withSecrets(ctx, &secrets), nil
+	return &secrets, nil
+}
+
+func WithSecrets(ctx context.Context) (context.Context, error) {
+	secrets, err := NewSecrets()
+	if err != nil {
+		return nil, err
+	}
+	return withSecrets(ctx, secrets), nil
 }
 
 func GetSecrets(ctx context.Context) *Secrets {

@@ -26,7 +26,10 @@ func TestWithSecrects(t *testing.T) {
 	}
 
 	baseEnviron := map[string]string{
-		"TWITTER_CONSUMER_SECRET": "myConsumerSecret",
+		"TWITTER_CONSUMER_KEY":        "myConsumerKey",
+		"TWITTER_CONSUMER_SECRET":     "myConsumerSecret",
+		"TWITTER_ACCESS_TOKEN":        "myAccessToken",
+		"TWITTER_ACCESS_TOKEN_SECRET": "myAccessTokenSecret",
 	}
 
 	for _, test := range tests {
@@ -57,7 +60,7 @@ func TestWithSecrects(t *testing.T) {
 				assert.Nil(t, err)
 				secrets := GetSecrets(ctx)
 				assert.NotNil(t, secrets)
-				assert.Equal(t, "myConsumerSecret", secrets.ConsumerSecret)
+				assert.Equal(t, "myConsumerSecret", secrets.TwitterConsumerSecret)
 			}
 		})
 	}

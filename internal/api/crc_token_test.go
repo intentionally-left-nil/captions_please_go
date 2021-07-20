@@ -41,7 +41,7 @@ func TestEncodeCRCToken(t *testing.T) {
 			url, err := url.Parse(test.url)
 			if assert.NoError(t, err) {
 				req := &http.Request{URL: url}
-				secrets := &Secrets{ConsumerSecret: test.consumerSecret}
+				secrets := &Secrets{TwitterConsumerSecret: test.consumerSecret}
 				ctx := withSecrets(context.Background(), secrets)
 				response := EncodeCRCToken(ctx, req)
 				assert.Equal(t, test.status, response.status)

@@ -1,43 +1,95 @@
 package main
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	verbose := flag.Bool("verbose", false, "Turn on verbose logging")
-	flag.Parse()
-
-	if *verbose {
-		log.SetLevel(log.DebugLevel)
+	app := &cli.App{
+		Name: "webhook",
+		Commands: []*cli.Command{
+			{
+				Name:   "status",
+				Usage:  "Gets a list of all current webhooks",
+				Action: status,
+			},
+			{
+				Name:   "create",
+				Usage:  "Create a new webhook, pointing to the given URL",
+				Action: create,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "url", Required: true},
+				},
+			},
+			{
+				Name:   "delete",
+				Usage:  "Delete a webhook, given its id",
+				Action: delete,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "id", Required: true},
+				},
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "verbose"},
+		},
+		Before: onBefore,
 	}
-	if len(flag.Args()) != 1 {
-		help()
-	}
-	switch flag.Arg(0) {
-	case "status":
-		status()
-	default:
-		help()
+	err := app.Run(os.Args)
+	if err != nil {
+		logrus.Fatal(err)
 	}
 }
 
-func status() {
+func status(c *cli.Context) error {
 	client := getClient()
-	webhook, err := client.Webhook()
+	webhooks, err := client.GetWebhooks()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	if webhook.Valid {
-		fmt.Printf("Webhook ID: %s points to %s\n", webhook.Id, webhook.Url)
-	} else {
-		panic(fmt.Errorf("webhook %s is invalid", webhook.Id))
+	printJSON(webhooks)
+	return nil
+}
+
+func create(c *cli.Context) error {
+	client := getClient()
+	url := c.String("url")
+	webhook, err := client.CreateWebhook(url)
+	if err != nil {
+		return err
 	}
+	printJSON(webhook)
+	return nil
+}
+
+func delete(c *cli.Context) error {
+	client := getClient()
+	id := c.String("id")
+	err := client.DeleteWebhook(id)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Webhook %s successfully deleted\n", id)
+	return nil
+}
+
+func onBefore(c *cli.Context) error {
+	if c.Bool("verbose") {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+	return nil
+}
+
+func printJSON(v interface{}) {
+	message, _ := json.MarshalIndent(v, "", "  ")
+	fmt.Println(string(message))
 }
 
 func getClient() twitter.Twitter {
@@ -50,9 +102,4 @@ func getClient() twitter.Twitter {
 		secrets.TwitterConsumerSecret,
 		secrets.TwitterAccessToken,
 		secrets.TwitterAccessTokenSecret)
-}
-
-func help() {
-	fmt.Println("usage: webhook status")
-	flag.PrintDefaults()
 }

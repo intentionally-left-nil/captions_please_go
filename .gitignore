@@ -12,6 +12,8 @@
 *.out
 /cmd/captions_please/captions_please
 /cmd/webhook/webhook
+/cmd/vision/vision
+.env
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

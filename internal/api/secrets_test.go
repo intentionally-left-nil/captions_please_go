@@ -32,6 +32,8 @@ func TestWithSecrects(t *testing.T) {
 		"TWITTER_ACCESS_TOKEN_SECRET":  "myAccessTokenSecret",
 		"TWITTER_BEARER_TOKEN":         "myTwitterBearerToken",
 		"CAPTIONS_PLEASE_CALLBACK_URL": "myCallbackURL",
+		"GOOGLE_PRIVATE_KEY_ID":        "googleyID",
+		"GOOGLE_PRIVATE_KEY_SECRET":    "googleySecret",
 	}
 
 	for _, test := range tests {

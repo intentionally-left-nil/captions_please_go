@@ -14,6 +14,8 @@ type Secrets struct {
 	TwitterAccessTokenSecret string
 	TwitterBearerToken       string
 	WebhookUrl               string
+	GooglePrivateKeyID       string
+	GooglePrivateKeySecret   string
 }
 
 type key int
@@ -34,6 +36,8 @@ func NewSecrets() (*Secrets, error) {
 		{"TwitterAccessTokenSecret", "TWITTER_ACCESS_TOKEN_SECRET"},
 		{"TwitterBearerToken", "TWITTER_BEARER_TOKEN"},
 		{"WebhookUrl", "CAPTIONS_PLEASE_CALLBACK_URL"},
+		{"GooglePrivateKeyID", "GOOGLE_PRIVATE_KEY_ID"},
+		{"GooglePrivateKeySecret", "GOOGLE_PRIVATE_KEY_SECRET"},
 	}
 
 	secrets := Secrets{}

@@ -23,6 +23,15 @@ func main() {
 					&cli.StringFlag{Name: "id", Required: true},
 				},
 			},
+			{
+				Name:   "reply",
+				Usage:  "Replies to a tweet with a message",
+				Action: tweetReply,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "id", Required: true},
+					&cli.StringFlag{Name: "message", Required: true},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "verbose"},
@@ -38,7 +47,19 @@ func main() {
 func getTweet(c *cli.Context) error {
 	client := getClient()
 	tweet, err := client.GetTweet(c.String("id"))
-	printJSON(tweet)
+	if err == nil {
+		printJSON(tweet)
+
+	}
+	return err
+}
+
+func tweetReply(c *cli.Context) error {
+	client := getClient()
+	tweet, err := client.TweetReply(c.String("id"), c.String("message"))
+	if err == nil {
+		printJSON(tweet)
+	}
 	return err
 }
 

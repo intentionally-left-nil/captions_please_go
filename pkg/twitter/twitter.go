@@ -24,6 +24,7 @@ type Twitter interface {
 	DeleteSubscription(subscriptionID string) error
 	AddSubscription() error
 	GetTweet(tweetID string) (*Tweet, error)
+	TweetReply(tweetID string, message string) (*Tweet, error)
 }
 
 type Webhook struct {
@@ -153,6 +154,20 @@ func (t *twitter) GetTweet(tweetID string) (*Tweet, error) {
 		if err == nil {
 			err = getJSON(response, &tweet)
 		}
+	}
+	return &tweet, err
+}
+
+func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, error) {
+	tweet := Tweet{}
+	values := url.Values{
+		"status":                       []string{message},
+		"in_reply_to_status_id":        []string{tweetID},
+		"auto_populate_reply_metadata": []string{"true"},
+	}
+	response, err := t.client.PostForm(URL+"statuses/update.json", values)
+	if err == nil {
+		err = getJSON(response, &tweet)
 	}
 	return &tweet, err
 }

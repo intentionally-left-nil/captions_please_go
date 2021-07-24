@@ -34,6 +34,7 @@ func TestWithSecrects(t *testing.T) {
 		"CAPTIONS_PLEASE_CALLBACK_URL": "myCallbackURL",
 		"GOOGLE_PRIVATE_KEY_ID":        "googleyID",
 		"GOOGLE_PRIVATE_KEY_SECRET":    "googleySecret",
+		"AZURE_COMPUTER_VISION_KEY":    "softieSecret",
 	}
 
 	for _, test := range tests {

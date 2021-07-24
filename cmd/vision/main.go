@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -22,6 +23,15 @@ func main() {
 				Action: ocr,
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "provider", Value: "google"},
+					&cli.StringFlag{Name: "url", Required: true},
+				},
+			},
+			{
+				Name:   "caption",
+				Usage:  "Get a ML generated caption of an image",
+				Action: caption,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provider", Value: "azure"},
 					&cli.StringFlag{Name: "url", Required: true},
 				},
 			},
@@ -49,13 +59,46 @@ func ocr(c *cli.Context) error {
 	secrets, err := api.NewSecrets()
 	if err == nil {
 		var ocr vision.OCR
-		ocr, err = vision.NewGoogleOCR(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+		switch c.String("provider") {
+		case "google":
+			ocr, err = vision.NewGoogleVision(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+		case "azure":
+			ocr = vision.NewAzureVision(secrets.AzureComputerVisionKey).(vision.OCR)
+		default:
+			err = errors.New("invalid provider, must be [google|azure]")
+		}
+
 		if err == nil {
 			var result *vision.OCRResult
-			result, err = ocr.Analyze(c.String("url"))
+			result, err = ocr.GetOCR(c.String("url"))
 			if err == nil {
 				printJSON(result)
 			}
+		}
+	}
+	return err
+}
+
+func caption(c *cli.Context) error {
+	secrets, err := api.NewSecrets()
+	if err == nil {
+		var describer vision.Describer
+		switch c.String("provider") {
+		case "azure":
+			describer = vision.NewAzureVision(secrets.AzureComputerVisionKey)
+		case "google":
+			err = errors.New("google is not a supported provider for image captions")
+		default:
+			err = errors.New("invalid provider, must be [google|azure]")
+		}
+		if err == nil {
+			results, err := describer.Describe(c.String("url"))
+			if err == nil {
+				for _, result := range results {
+					printJSON(result)
+				}
+			}
+
 		}
 	}
 	return err

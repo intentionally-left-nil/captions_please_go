@@ -16,6 +16,7 @@ type Secrets struct {
 	WebhookUrl               string
 	GooglePrivateKeyID       string
 	GooglePrivateKeySecret   string
+	AzureComputerVisionKey   string
 }
 
 type key int
@@ -38,6 +39,7 @@ func NewSecrets() (*Secrets, error) {
 		{"WebhookUrl", "CAPTIONS_PLEASE_CALLBACK_URL"},
 		{"GooglePrivateKeyID", "GOOGLE_PRIVATE_KEY_ID"},
 		{"GooglePrivateKeySecret", "GOOGLE_PRIVATE_KEY_SECRET"},
+		{"AzureComputerVisionKey", "AZURE_COMPUTER_VISION_KEY"},
 	}
 
 	secrets := Secrets{}

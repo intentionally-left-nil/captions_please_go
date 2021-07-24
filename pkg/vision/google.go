@@ -16,21 +16,7 @@ type google struct {
 	client *vision.ImageAnnotatorClient
 }
 
-type OCRLanguage struct {
-	Code       string
-	Confidence float32
-}
-
-type OCRResult struct {
-	Text     string
-	Language OCRLanguage
-}
-
-type OCR interface {
-	Analyze(url string) (*OCRResult, error)
-}
-
-func NewGoogleOCR(privateKeyId string, privateKey string) (OCR, error) {
+func NewGoogleVision(privateKeyId string, privateKey string) (OCR, error) {
 	var ocr OCR
 	credentials := map[string]string{
 		"type":                        "service_account",
@@ -56,7 +42,7 @@ func NewGoogleOCR(privateKeyId string, privateKey string) (OCR, error) {
 	return ocr, err
 }
 
-func (g *google) Analyze(url string) (*OCRResult, error) {
+func (g *google) GetOCR(url string) (*OCRResult, error) {
 	var result *OCRResult
 	image := vision.NewImageFromURI(url)
 	ctx := context.Background()

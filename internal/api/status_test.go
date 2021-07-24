@@ -50,6 +50,10 @@ func (m *mockTwitter) AddSubscription() error {
 	return m.addSubscription()
 }
 
+func (m *mockTwitter) GetTweet(id string) (*twitter.Tweet, error) {
+	return nil, errors.New("Not implemented")
+}
+
 func TestWebhookStatus(t *testing.T) {
 
 	err := errors.New("oops, I did it again")

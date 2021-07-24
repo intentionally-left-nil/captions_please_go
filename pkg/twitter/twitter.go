@@ -23,6 +23,7 @@ type Twitter interface {
 	GetSubscriptions() ([]Subscription, error)
 	DeleteSubscription(subscriptionID string) error
 	AddSubscription() error
+	GetTweet(tweetID string) (*Tweet, error)
 }
 
 type Webhook struct {
@@ -63,7 +64,7 @@ func (t *twitter) DeleteWebhook(webhookID string) error {
 		if err == nil {
 			var body []byte
 			body, err = ioutil.ReadAll(response.Body)
-			logrus.Debug("Twitter response:\n%v\n", string(body))
+			logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 			if err == nil {
 				err = validateStatusCode(response)
 			}
@@ -114,7 +115,7 @@ func (t *twitter) DeleteSubscription(subscriptionID string) error {
 		if err == nil {
 			var body []byte
 			body, err = ioutil.ReadAll(response.Body)
-			logrus.Debug("Twitter response:\n%v\n", string(body))
+			logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 			if err == nil {
 				err = validateStatusCode(response)
 			}
@@ -128,12 +129,32 @@ func (t *twitter) AddSubscription() error {
 	if err == nil {
 		var body []byte
 		body, err = ioutil.ReadAll(response.Body)
-		logrus.Debug("Twitter response:\n%v\n", string(body))
+		logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 		if err == nil {
 			err = validateStatusCode(response)
 		}
 	}
 	return err
+}
+
+func (t *twitter) GetTweet(tweetID string) (*Tweet, error) {
+	req, err := http.NewRequest("GET", URL+"statuses/show.json", nil)
+	tweet := Tweet{}
+	if err == nil {
+		query := req.URL.Query()
+		query.Add("id", tweetID)
+		query.Add("include_entities", "true")
+		query.Add("include_ext_alt_text", "true")
+		query.Add("tweet_mode", "extended")
+		req.URL.RawQuery = query.Encode()
+		logrus.Debug(fmt.Sprintf("Request URL %s\n", req.URL.String()))
+		var response *http.Response
+		response, err = t.client.Do(req)
+		if err == nil {
+			err = getJSON(response, &tweet)
+		}
+	}
+	return &tweet, err
 }
 
 func validateStatusCode(response *http.Response) error {
@@ -148,7 +169,7 @@ func getJSON(response *http.Response, dest interface{}) error {
 	if err != nil {
 		return err
 	}
-	logrus.Debug("Twitter response:\n%v\n", string(body))
+	logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 
 	err = validateStatusCode(response)
 	if err != nil {

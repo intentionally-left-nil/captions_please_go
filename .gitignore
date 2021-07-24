@@ -13,6 +13,7 @@
 /cmd/captions_please/captions_please
 /cmd/webhook/webhook
 /cmd/vision/vision
+/cmd/tweets/tweets
 .env
 
 # Dependency directories (remove the comment below to include it)

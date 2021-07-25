@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/mrjones/oauth"
 	"github.com/sirupsen/logrus"
@@ -16,15 +18,21 @@ type twitter struct {
 	bearer string
 }
 
+type RateLimit struct {
+	Ceiling    *int
+	Remaining  *int
+	NextWindow *time.Time
+}
+
 type Twitter interface {
-	GetWebhooks() ([]Webhook, error)
-	CreateWebhook(url string) (Webhook, error)
-	DeleteWebhook(webhookID string) error
-	GetSubscriptions() ([]Subscription, error)
-	DeleteSubscription(subscriptionID string) error
-	AddSubscription() error
-	GetTweet(tweetID string) (*Tweet, error)
-	TweetReply(tweetID string, message string) (*Tweet, error)
+	GetWebhooks() ([]Webhook, RateLimit, error)
+	CreateWebhook(url string) (Webhook, RateLimit, error)
+	DeleteWebhook(webhookID string) (RateLimit, error)
+	GetSubscriptions() ([]Subscription, RateLimit, error)
+	DeleteSubscription(subscriptionID string) (RateLimit, error)
+	AddSubscription() (RateLimit, error)
+	GetTweet(tweetID string) (*Tweet, RateLimit, error)
+	TweetReply(tweetID string, message string) (*Tweet, RateLimit, error)
 }
 
 type Webhook struct {
@@ -46,22 +54,24 @@ func NewTwitter(consumerKey string, consumerSecret string, accessToken string, a
 	return &twitter{client: client, bearer: bearerToken}
 }
 
-func (t *twitter) GetWebhooks() ([]Webhook, error) {
+func (t *twitter) GetWebhooks() ([]Webhook, RateLimit, error) {
 	var webhooks []Webhook
 	response, err := t.client.Get(URL + "account_activity/all/dev/webhooks.json")
 	if err == nil {
 		webhooks = make([]Webhook, 0)
 		err = getJSON(response, &webhooks)
 	}
-	return webhooks, err
+	return webhooks, getRateLimit(response), err
 }
 
-func (t *twitter) DeleteWebhook(webhookID string) error {
+func (t *twitter) DeleteWebhook(webhookID string) (RateLimit, error) {
 	url := fmt.Sprintf("%saccount_activity/all/dev/webhooks/%s.json", URL, webhookID)
 	request, err := http.NewRequest("DELETE", url, nil)
+	rateLimit := RateLimit{}
 	if err == nil {
 		var response *http.Response
 		response, err = t.client.Do(request)
+		rateLimit = getRateLimit(response)
 		if err == nil {
 			var body []byte
 			body, err = ioutil.ReadAll(response.Body)
@@ -71,29 +81,31 @@ func (t *twitter) DeleteWebhook(webhookID string) error {
 			}
 		}
 	}
-	return err
+	return rateLimit, err
 }
 
-func (t *twitter) CreateWebhook(webhookUrl string) (Webhook, error) {
+func (t *twitter) CreateWebhook(webhookUrl string) (Webhook, RateLimit, error) {
 	var webhook Webhook
 	response, err := t.client.PostForm(URL+"account_activity/all/dev/webhooks.json", url.Values{"url": []string{webhookUrl}})
 	if err == nil {
 		err = getJSON(response, &webhook)
 	}
-	return webhook, err
+	return webhook, getRateLimit(response), err
 }
 
-func (t *twitter) GetSubscriptions() ([]Subscription, error) {
+func (t *twitter) GetSubscriptions() ([]Subscription, RateLimit, error) {
 	type apiResponse struct {
 		Subscriptions []Subscription `json:"subscriptions"`
 	}
 	var subscriptions []Subscription
+	rateLimit := RateLimit{}
 	request, err := http.NewRequest("GET", URL+"account_activity/all/dev/subscriptions/list.json", nil)
 	if err == nil {
 		request.Header.Set("Authorization", "Bearer "+t.bearer)
 		client := http.Client{}
 		var response *http.Response
 		response, err = client.Do(request)
+		rateLimit = getRateLimit(response)
 		if err == nil {
 			api := apiResponse{}
 			err = getJSON(response, &api)
@@ -102,17 +114,19 @@ func (t *twitter) GetSubscriptions() ([]Subscription, error) {
 			}
 		}
 	}
-	return subscriptions, err
+	return subscriptions, rateLimit, err
 }
 
-func (t *twitter) DeleteSubscription(subscriptionID string) error {
+func (t *twitter) DeleteSubscription(subscriptionID string) (RateLimit, error) {
 	url := fmt.Sprintf("%saccount_activity/all/dev/subscriptions/%s.json", URL, subscriptionID)
 	request, err := http.NewRequest("DELETE", url, nil)
+	rateLimit := RateLimit{}
 	if err == nil {
 		request.Header.Set("Authorization", "Bearer "+t.bearer)
 		client := http.Client{}
 		var response *http.Response
 		response, err = client.Do(request)
+		rateLimit = getRateLimit(response)
 		if err == nil {
 			var body []byte
 			body, err = ioutil.ReadAll(response.Body)
@@ -122,10 +136,10 @@ func (t *twitter) DeleteSubscription(subscriptionID string) error {
 			}
 		}
 	}
-	return err
+	return rateLimit, err
 }
 
-func (t *twitter) AddSubscription() error {
+func (t *twitter) AddSubscription() (RateLimit, error) {
 	response, err := t.client.PostForm(URL+"account_activity/all/dev/subscriptions.json", url.Values{})
 	if err == nil {
 		var body []byte
@@ -135,12 +149,13 @@ func (t *twitter) AddSubscription() error {
 			err = validateStatusCode(response)
 		}
 	}
-	return err
+	return getRateLimit(response), err
 }
 
-func (t *twitter) GetTweet(tweetID string) (*Tweet, error) {
+func (t *twitter) GetTweet(tweetID string) (*Tweet, RateLimit, error) {
 	req, err := http.NewRequest("GET", URL+"statuses/show.json", nil)
 	tweet := Tweet{}
+	rateLimit := RateLimit{}
 	if err == nil {
 		query := req.URL.Query()
 		query.Add("id", tweetID)
@@ -151,14 +166,15 @@ func (t *twitter) GetTweet(tweetID string) (*Tweet, error) {
 		logrus.Debug(fmt.Sprintf("Request URL %s\n", req.URL.String()))
 		var response *http.Response
 		response, err = t.client.Do(req)
+		rateLimit = getRateLimit(response)
 		if err == nil {
 			err = getJSON(response, &tweet)
 		}
 	}
-	return &tweet, err
+	return &tweet, rateLimit, err
 }
 
-func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, error) {
+func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, RateLimit, error) {
 	tweet := Tweet{}
 	values := url.Values{
 		"status":                       []string{message},
@@ -169,7 +185,7 @@ func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, error) {
 	if err == nil {
 		err = getJSON(response, &tweet)
 	}
-	return &tweet, err
+	return &tweet, getRateLimit(response), err
 }
 
 func validateStatusCode(response *http.Response) error {
@@ -192,4 +208,21 @@ func getJSON(response *http.Response, dest interface{}) error {
 	}
 	err = json.Unmarshal(body, dest)
 	return err
+}
+
+func getRateLimit(response *http.Response) RateLimit {
+	rateLimit := RateLimit{}
+	if ceiling, err := strconv.Atoi(response.Header.Get("x-rate-limit-limit")); err == nil {
+		rateLimit.Ceiling = &ceiling
+	}
+
+	if remaining, err := strconv.Atoi(response.Header.Get("x-rate-limit-remaining")); err == nil {
+		rateLimit.Remaining = &remaining
+	}
+
+	if nextWindowEpoch, err := strconv.Atoi(response.Header.Get("x-rate-limit-reset")); err == nil {
+		nextWindow := time.Unix(int64(nextWindowEpoch), 0)
+		rateLimit.NextWindow = &nextWindow
+	}
+	return rateLimit
 }

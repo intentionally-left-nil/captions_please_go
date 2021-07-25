@@ -20,42 +20,45 @@ type mockTwitter struct {
 	addSubscription    func() error
 }
 
-func (m *mockTwitter) GetWebhooks() ([]twitter.Webhook, error) {
+func (m *mockTwitter) GetWebhooks() ([]twitter.Webhook, twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.getWebhooks)
-	return m.getWebhooks()
+	webhooks, err := m.getWebhooks()
+	return webhooks, twitter.RateLimit{}, err
 }
 
-func (m *mockTwitter) CreateWebhook(url string) (twitter.Webhook, error) {
+func (m *mockTwitter) CreateWebhook(url string) (twitter.Webhook, twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.createWebhook)
-	return m.createWebhook(url)
+	webhook, err := m.createWebhook(url)
+	return webhook, twitter.RateLimit{}, err
 }
 
-func (m *mockTwitter) DeleteWebhook(id string) error {
+func (m *mockTwitter) DeleteWebhook(id string) (twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.deleteWebhook)
-	return m.deleteWebhook(id)
+	return twitter.RateLimit{}, m.deleteWebhook(id)
 }
 
-func (m *mockTwitter) GetSubscriptions() ([]twitter.Subscription, error) {
+func (m *mockTwitter) GetSubscriptions() ([]twitter.Subscription, twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.getSubscriptions)
-	return m.getSubscriptions()
+	subscription, err := m.getSubscriptions()
+	return subscription, twitter.RateLimit{}, err
 }
 
-func (m *mockTwitter) DeleteSubscription(id string) error {
+func (m *mockTwitter) DeleteSubscription(id string) (twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.deleteSubscription)
-	return m.deleteSubscription(id)
+	return twitter.RateLimit{}, m.deleteSubscription(id)
 }
 
-func (m *mockTwitter) AddSubscription() error {
+func (m *mockTwitter) AddSubscription() (twitter.RateLimit, error) {
 	assert.NotNil(m.t, m.addSubscription)
-	return m.addSubscription()
+	return twitter.RateLimit{}, m.addSubscription()
 }
 
-func (m *mockTwitter) GetTweet(id string) (*twitter.Tweet, error) {
-	return nil, errors.New("Not implemented")
+func (m *mockTwitter) GetTweet(id string) (*twitter.Tweet, twitter.RateLimit, error) {
+	return nil, twitter.RateLimit{}, errors.New("Not implemented")
 }
 
-func (m *mockTwitter) TweetReply(id string, message string) (*twitter.Tweet, error) {
-	return nil, errors.New("Not implemented")
+func (m *mockTwitter) TweetReply(id string, message string) (*twitter.Tweet, twitter.RateLimit, error) {
+	return nil, twitter.RateLimit{}, errors.New("Not implemented")
 }
 
 func TestWebhookStatus(t *testing.T) {

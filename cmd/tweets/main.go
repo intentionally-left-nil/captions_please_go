@@ -46,9 +46,10 @@ func main() {
 
 func getTweet(c *cli.Context) error {
 	client := getClient()
-	tweet, err := client.GetTweet(c.String("id"))
+	tweet, rateLimit, err := client.GetTweet(c.String("id"))
 	if err == nil {
 		printJSON(tweet)
+		printJSON(rateLimit)
 
 	}
 	return err
@@ -56,9 +57,10 @@ func getTweet(c *cli.Context) error {
 
 func tweetReply(c *cli.Context) error {
 	client := getClient()
-	tweet, err := client.TweetReply(c.String("id"), c.String("message"))
+	tweet, rateLimit, err := client.TweetReply(c.String("id"), c.String("message"))
 	if err == nil {
 		printJSON(tweet)
+		printJSON(rateLimit)
 	}
 	return err
 }

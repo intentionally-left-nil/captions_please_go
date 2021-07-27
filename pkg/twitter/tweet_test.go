@@ -7,74 +7,178 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestUnmarshalTweet(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected Tweet
+		hasError bool
+	}{
+		{
+			name:     "Parses a valid tweet",
+			json:     "{\"id_str\": \"123\", \"text\": \"!hello world!\", \"display_text_range\": [1,12]}",
+			expected: Tweet{Id: "123", Text: "hello world"},
+		},
+		{
+			name:     "Errors if the id is missing",
+			json:     "{\"text\": \"!hello world!\", \"display_text_range\": [1,12]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the text is invalid",
+			json:     "{\"id_str\": \"123\", \"text\": \"!hello world!\", \"display_text_range\": [-1,12]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the mentions are invalid",
+			json:     "{\"id_str\": \"123\", \"text\": \"!hello world!\", \"display_text_range\": [1,12], \"entities\":{\"user_mentions\":[{}]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the json is invalid",
+			json:     "{\"id_str\":123}",
+			hasError: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tweet := Tweet{}
+			err := json.Unmarshal([]byte(test.json), &tweet)
+			if test.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expected, tweet)
+			}
+		})
+	}
+}
+
 func TestTweetText(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
 		expected string
+		hasError bool
 	}{
 		{
-			name:     "Returns an empty string with no data",
-			json:     "{}",
-			expected: "",
-		},
-		{
-			name:     "Returns an empty string without a range",
-			json:     "{\"full_text\": \"hello\"}",
-			expected: "",
-		},
-		{
-			name:     "Returns the whole full_text",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 5]}",
-			expected: "hello",
-		},
-		{
-			name:     "Returns a slice of the full_text",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[2, 4]}",
-			expected: "ll",
-		},
-		{
-			name:     "Handles a negative start index",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[-1, 1]}",
-			expected: "h",
-		},
-		{
-			name:     "Handles an end index too long",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 6]}",
-			expected: "hello",
-		},
-		{
-			name:     "Returns an empty string if the VisibleRange is invalid",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0]}",
-			expected: "",
-		},
-		{
-			name:     "Ignores the extended text if not truncated",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 5], \"truncated\": false, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,11]}}",
-			expected: "hello",
-		},
-		{
-			name:     "Ignores the extended text if the field is missing",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 5], \"truncated\": true}",
-			expected: "hello",
-		},
-		{
-			name:     "Ignores the extended text if the range is invalid",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 5], \"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[]}}",
-			expected: "hello",
-		},
-		{
-			name:     "Returns the extended tweet",
-			json:     "{\"full_text\": \"hello\", \"display_text_range\":[0, 5], \"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,11]}}",
+			name:     "Returns the extended text",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,11]}}",
 			expected: "hello world",
+		},
+		{
+			name:     "Returns a slice of the extended text",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[7,10]}}",
+			expected: "orl",
+		},
+		{
+			name:     "Returns the full text of a non-truncated tweet",
+			json:     "{\"full_text\": \"hello world\", \"display_text_range\":[0,11]}",
+			expected: "hello world",
+		},
+		{
+			name:     "Returns a slice of a non-truncated tweet",
+			json:     "{\"full_text\": \"hello world\", \"display_text_range\":[7,10]}",
+			expected: "orl",
+		},
+		{
+			name:     "Returns the fallback text of a non-truncated tweet",
+			json:     "{\"text\": \"hello world\", \"display_text_range\":[0,11]}",
+			expected: "hello world",
+		},
+		{
+			name:     "Returns a fallback slice of a truncated tweet",
+			json:     "{\"text\": \"hello world\", \"display_text_range\":[7,10]}",
+			expected: "orl",
+		},
+		{
+			name:     "Prefers the extended text",
+			json:     "{\"truncated\": true, \"full_text\": \"chose the wrong text\", \"text\": \"also chose the wrong text\", \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,11]}}",
+			expected: "hello world",
+		},
+		{
+			name:     "Prefers the full_text if not truncated",
+			json:     "{\"truncated\": false, \"full_text\": \"hello full_text\", \"text\": \"also chose the wrong text\", \"display_text_range\":[0,15], \"extended_tweet\":{\"full_text\":\"wrong one\", \"display_text_range\":[0,11]}}",
+			expected: "hello full_text",
+		},
+		{
+			name:     "Falls back to the text if full_text is missing",
+			json:     "{\"truncated\": false, \"text\": \"hello text\", \"display_text_range\":[0,10], \"extended_tweet\":{\"full_text\":\"wrong text\", \"display_text_range\":[0,10]}}",
+			expected: "hello text",
+		},
+		{
+			name:     "Errors with no data",
+			json:     "{}",
+			hasError: true,
+		},
+		{
+			name:     "errors if truncated but no extended_tweet",
+			json:     "{\"truncated\": true, \"text\": \"hello world\", \"display_text_range\":[7,10]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the extended_tweet full_text is missing",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"display_text_range\":[0,0]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the extended_tweet len is invalid",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\"}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the extended_tweet start is negative",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[-1,11]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the extended_tweet start is greater than the end",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[6,5]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the extended_tweet end is greater than the length",
+			json:     "{\"truncated\": true, \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,12]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if display_text_range is invalid",
+			json:     "{\"full_text\": \"hello world\"}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if missing both the full_text and the text",
+			json:     "{\"display_text_range\":[0,11]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the start is negative",
+			json:     "{\"full_text\": \"hello world\", \"display_text_range\":[-1,11]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the start is greater than the end",
+			json:     "{\"full_text\": \"hello world\", \"display_text_range\":[6,5]}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the end is too long",
+			json:     "{\"full_text\": \"hello world\", \"display_text_range\":[0,12]}",
+			hasError: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tweet := Tweet{}
+			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
-			assert.Equal(t, test.expected, tweet.Text)
+			text, err := tweet.Text()
+			if test.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expected, text)
+			}
 		})
 	}
 }
@@ -104,9 +208,9 @@ func TestTweetType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tweet := Tweet{}
+			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
-			assert.Equal(t, test.expected, tweet.Type)
+			assert.Equal(t, test.expected, tweet.TweetType())
 		})
 	}
 }
@@ -115,34 +219,51 @@ func TestTweetMentions(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
-		expected []User
+		expected []Mention
+		hasError bool
 	}{
 		{
-			name:     "No entities",
+			name:     "Returns a mention",
+			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[0, 21], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]}]}}",
+			expected: []Mention{{User: User{Id: "123", Username: "captions_please", Display: "myName"}, StartIndex: 0, EndIndex: 16}},
+		},
+		{
+			name:     "Gracefully handles no entities",
 			json:     "{}",
-			expected: []User{},
+			expected: nil,
 		},
 		{
-			name:     "No mentions in the entity",
+			name:     "Message without any mentions",
 			json:     "{\"entities\":{}}",
-			expected: []User{},
+			expected: nil,
 		},
 		{
-			name:     "Empty user mentions",
-			json:     "{\"entities\":{\"user_mentions\":[]}}",
-			expected: []User{},
+			name:     "Errors if getting the tweet text fails",
+			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[-1, 21], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]}]}}",
+			hasError: true,
 		},
 		{
-			name:     "Has mentions",
-			json:     "{\"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\":\"captions_please\"}, {}]}}",
-			expected: []User{{Id: "123", Username: "captions_please"}, {}},
+			name:     "Errors if the range is invalid",
+			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[0, 21], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[5,22]}]}}",
+			hasError: true,
+		},
+		{
+			name:     "Errors if the id is invalid",
+			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[0, 21], \"entities\":{\"user_mentions\":[{\"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]}]}}",
+			hasError: true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tweet := Tweet{}
+			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
-			assert.Equal(t, test.expected, tweet.Mentions)
+			mentions, err := tweet.Mentions()
+			if test.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, test.expected, mentions)
+			}
 		})
 	}
 }
@@ -158,17 +279,17 @@ func TestTweetMedia(t *testing.T) {
 		{
 			name:     "No extended_entities",
 			json:     "{}",
-			expected: []media{},
+			expected: nil,
 		},
 		{
 			name:     "No media",
 			json:     "{\"extended_entities\": {}}",
-			expected: []media{},
+			expected: nil,
 		},
 		{
 			name:     "Empty media",
 			json:     "{\"extended_entities\": {\"media\":[]}}",
-			expected: []media{},
+			expected: nil,
 		},
 		{
 			name:     "Has media",
@@ -183,9 +304,10 @@ func TestTweetMedia(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tweet := Tweet{}
+			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
-			assert.Equal(t, test.expected, tweet.Media)
+			media := tweet.Media()
+			assert.Equal(t, test.expected, media)
 		})
 	}
 }

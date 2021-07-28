@@ -190,6 +190,9 @@ func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string
 		"status":                       []string{message},
 		"in_reply_to_status_id":        []string{tweetID},
 		"auto_populate_reply_metadata": []string{"true"},
+		"include_entities":             []string{"true"},
+		"include_ext_alt_text":         []string{"true"},
+		"tweet_mode":                   []string{"extended"},
 	}
 	response, err := t.post(ctx, URL+"statuses/update.json", values)
 	if err == nil {

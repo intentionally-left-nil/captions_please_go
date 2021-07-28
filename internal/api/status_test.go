@@ -57,6 +57,10 @@ func (m *mockTwitter) GetTweet(id string) (*twitter.Tweet, twitter.RateLimit, er
 	return nil, twitter.RateLimit{}, errors.New("Not implemented")
 }
 
+func (m *mockTwitter) GetTweetRaw(id string) (*http.Response, twitter.RateLimit, error) {
+	return nil, twitter.RateLimit{}, errors.New("Not implemented")
+}
+
 func (m *mockTwitter) TweetReply(id string, message string) (*twitter.Tweet, twitter.RateLimit, error) {
 	return nil, twitter.RateLimit{}, errors.New("Not implemented")
 }

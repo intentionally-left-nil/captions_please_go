@@ -31,6 +31,7 @@ type Twitter interface {
 	GetSubscriptions() ([]Subscription, RateLimit, error)
 	DeleteSubscription(subscriptionID string) (RateLimit, error)
 	AddSubscription() (RateLimit, error)
+	GetTweetRaw(tweetID string) (*http.Response, RateLimit, error)
 	GetTweet(tweetID string) (*Tweet, RateLimit, error)
 	TweetReply(tweetID string, message string) (*Tweet, RateLimit, error)
 }
@@ -59,7 +60,7 @@ func (t *twitter) GetWebhooks() ([]Webhook, RateLimit, error) {
 	response, err := t.client.Get(URL + "account_activity/all/dev/webhooks.json")
 	if err == nil {
 		webhooks = make([]Webhook, 0)
-		err = getJSON(response, &webhooks)
+		err = GetJSON(response, &webhooks)
 	}
 	return webhooks, getRateLimit(response), err
 }
@@ -88,7 +89,7 @@ func (t *twitter) CreateWebhook(webhookUrl string) (Webhook, RateLimit, error) {
 	var webhook Webhook
 	response, err := t.client.PostForm(URL+"account_activity/all/dev/webhooks.json", url.Values{"url": []string{webhookUrl}})
 	if err == nil {
-		err = getJSON(response, &webhook)
+		err = GetJSON(response, &webhook)
 	}
 	return webhook, getRateLimit(response), err
 }
@@ -108,7 +109,7 @@ func (t *twitter) GetSubscriptions() ([]Subscription, RateLimit, error) {
 		rateLimit = getRateLimit(response)
 		if err == nil {
 			api := apiResponse{}
-			err = getJSON(response, &api)
+			err = GetJSON(response, &api)
 			if err == nil {
 				subscriptions = api.Subscriptions
 			}
@@ -151,11 +152,22 @@ func (t *twitter) AddSubscription() (RateLimit, error) {
 	}
 	return getRateLimit(response), err
 }
-
 func (t *twitter) GetTweet(tweetID string) (*Tweet, RateLimit, error) {
-	req, err := http.NewRequest("GET", URL+"statuses/show.json", nil)
 	tweet := Tweet{}
+	response, rateLimit, err := t.GetTweetRaw(tweetID)
+	if err == nil {
+		rateLimit = getRateLimit(response)
+		if err == nil {
+			err = GetJSON(response, &tweet)
+		}
+	}
+	return &tweet, rateLimit, err
+}
+
+func (t *twitter) GetTweetRaw(tweetID string) (*http.Response, RateLimit, error) {
+	req, err := http.NewRequest("GET", URL+"statuses/show.json", nil)
 	rateLimit := RateLimit{}
+	var response *http.Response
 	if err == nil {
 		query := req.URL.Query()
 		query.Add("id", tweetID)
@@ -164,14 +176,10 @@ func (t *twitter) GetTweet(tweetID string) (*Tweet, RateLimit, error) {
 		query.Add("tweet_mode", "extended")
 		req.URL.RawQuery = query.Encode()
 		logrus.Debug(fmt.Sprintf("Request URL %s\n", req.URL.String()))
-		var response *http.Response
 		response, err = t.client.Do(req)
 		rateLimit = getRateLimit(response)
-		if err == nil {
-			err = getJSON(response, &tweet)
-		}
 	}
-	return &tweet, rateLimit, err
+	return response, rateLimit, err
 }
 
 func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, RateLimit, error) {
@@ -183,7 +191,7 @@ func (t *twitter) TweetReply(tweetID string, message string) (*Tweet, RateLimit,
 	}
 	response, err := t.client.PostForm(URL+"statuses/update.json", values)
 	if err == nil {
-		err = getJSON(response, &tweet)
+		err = GetJSON(response, &tweet)
 	}
 	return &tweet, getRateLimit(response), err
 }
@@ -195,7 +203,7 @@ func validateStatusCode(response *http.Response) error {
 	return nil
 }
 
-func getJSON(response *http.Response, dest interface{}) error {
+func GetJSON(response *http.Response, dest interface{}) error {
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
@@ -32,6 +36,14 @@ func main() {
 					&cli.StringFlag{Name: "message", Required: true},
 				},
 			},
+			{
+				Name:   "process",
+				Usage:  "Respond to a tweet as if it were the webhook",
+				Action: processTweet,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "id", Required: true},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "verbose"},
@@ -51,6 +63,33 @@ func getTweet(c *cli.Context) error {
 		printJSON(tweet)
 		printJSON(rateLimit)
 
+	}
+	return err
+}
+
+func processTweet(c *cli.Context) error {
+	client := getClient()
+	response, rateLimit, err := client.GetTweetRaw(c.String("id"))
+	printJSON(rateLimit)
+	if err == nil {
+		createData := map[string]interface{}{}
+		twitter.GetJSON(response, &createData)
+		var activityJSON []byte
+		activityJSON, err = json.Marshal(map[string]interface{}{
+			"tweet_create_events": []interface{}{createData},
+			// TODO: don't hardcode the bot ID
+			"for_user_id": "1264369368386826240",
+		})
+
+		if err == nil {
+			fmt.Println("Got the tweet, processing the webhook")
+			reader := io.NopCloser(strings.NewReader(string(activityJSON)))
+			request := &http.Request{Body: reader}
+			var ctx context.Context
+			ctx, err = api.WithSecrets(context.Background())
+			apiResponse := api.AccountActivityWebhook(ctx, request)
+			printJSON(apiResponse)
+		}
 	}
 	return err
 }

@@ -39,7 +39,7 @@ type rawTweet struct {
 	Id               string                  `json:"id_str"`
 	FullText         *string                 `json:"full_text"`
 	TruncatedText    *string                 `json:"text"`
-	VisibleRange     []int                   `json:"display_text_range"`
+	VisibleRange     *[]int                  `json:"display_text_range"`
 	ExtendedTweet    *extendedTweet          `json:"extended_tweet"`
 	Truncated        bool                    `json:"truncated"`
 	ParentTweetId    string                  `json:"in_reply_to_user_id_str"`
@@ -90,15 +90,30 @@ func (t *rawTweet) Text() (string, error) {
 			text = (*et.Text)[start:end]
 		}
 	} else if t.FullText != nil {
-		err = validateRange(*t.FullText, t.VisibleRange, "full_text")
+		var visibleRange []int
+		if t.VisibleRange == nil {
+			visibleRange = []int{}
+		} else {
+			visibleRange = *t.VisibleRange
+		}
+		err = validateRange(*t.FullText, visibleRange, "full_text")
 		if err == nil {
-			start, end := t.VisibleRange[0], t.VisibleRange[1]
+			start, end := (visibleRange)[0], (visibleRange)[1]
 			text = (*t.FullText)[start:end]
 		}
 	} else if t.TruncatedText != nil {
-		err = validateRange(*t.TruncatedText, t.VisibleRange, "text")
+		var visibleRange []int
+		if t.VisibleRange == nil {
+			// The VisibleRange isn't always present for the fallback text field
+			// Just take the whole length if missing
+			visibleRange = []int{0, len(*t.TruncatedText)}
+		} else {
+			visibleRange = *t.VisibleRange
+		}
+
+		err = validateRange(*t.TruncatedText, visibleRange, "text")
 		if err == nil {
-			start, end := t.VisibleRange[0], t.VisibleRange[1]
+			start, end := visibleRange[0], visibleRange[1]
 			text = (*t.TruncatedText)[start:end]
 		}
 	} else {

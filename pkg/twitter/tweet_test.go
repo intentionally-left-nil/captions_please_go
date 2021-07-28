@@ -92,6 +92,11 @@ func TestTweetText(t *testing.T) {
 			expected: "orl",
 		},
 		{
+			name:     "Gracefully handles a missing display_text_range for the fallback text",
+			json:     "{\"text\": \"hello world\"}",
+			expected: "hello world",
+		},
+		{
 			name:     "Prefers the extended text",
 			json:     "{\"truncated\": true, \"full_text\": \"chose the wrong text\", \"text\": \"also chose the wrong text\", \"extended_tweet\":{\"full_text\":\"hello world\", \"display_text_range\":[0,11]}}",
 			expected: "hello world",

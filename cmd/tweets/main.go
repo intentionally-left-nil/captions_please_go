@@ -58,7 +58,7 @@ func main() {
 
 func getTweet(c *cli.Context) error {
 	client := getClient()
-	tweet, rateLimit, err := client.GetTweet(c.String("id"))
+	tweet, rateLimit, err := client.GetTweet(context.Background(), c.String("id"))
 	if err == nil {
 		printJSON(tweet)
 		printJSON(rateLimit)
@@ -69,7 +69,7 @@ func getTweet(c *cli.Context) error {
 
 func processTweet(c *cli.Context) error {
 	client := getClient()
-	response, rateLimit, err := client.GetTweetRaw(c.String("id"))
+	response, rateLimit, err := client.GetTweetRaw(context.Background(), c.String("id"))
 	printJSON(rateLimit)
 	if err == nil {
 		createData := map[string]interface{}{}
@@ -96,7 +96,7 @@ func processTweet(c *cli.Context) error {
 
 func tweetReply(c *cli.Context) error {
 	client := getClient()
-	tweet, rateLimit, err := client.TweetReply(c.String("id"), c.String("message"))
+	tweet, rateLimit, err := client.TweetReply(context.Background(), c.String("id"), c.String("message"))
 	if err == nil {
 		printJSON(tweet)
 		printJSON(rateLimit)

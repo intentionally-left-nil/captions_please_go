@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,12 +51,12 @@ func main() {
 
 func status(c *cli.Context) error {
 	client := getClient()
-	webhooks, webhookRateLimit, err := client.GetWebhooks()
+	webhooks, webhookRateLimit, err := client.GetWebhooks(context.Background())
 	if err != nil {
 		return err
 	}
 
-	subscriptions, subscriptionsRateLimit, err := client.GetSubscriptions()
+	subscriptions, subscriptionsRateLimit, err := client.GetSubscriptions(context.Background())
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func status(c *cli.Context) error {
 func create(c *cli.Context) error {
 	client := getClient()
 	url := c.String("url")
-	webhook, rateLimit, err := client.CreateWebhook(url)
+	webhook, rateLimit, err := client.CreateWebhook(context.Background(), url)
 	if err != nil {
 		return err
 	}
@@ -84,7 +85,7 @@ func create(c *cli.Context) error {
 func delete(c *cli.Context) error {
 	client := getClient()
 	id := c.String("id")
-	rateLimit, err := client.DeleteWebhook(id)
+	rateLimit, err := client.DeleteWebhook(context.Background(), id)
 	if err != nil {
 		return err
 	}

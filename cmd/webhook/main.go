@@ -51,21 +51,19 @@ func main() {
 
 func status(c *cli.Context) error {
 	client := getClient()
-	webhooks, webhookRateLimit, err := client.GetWebhooks(context.Background())
+	webhooks, err := client.GetWebhooks(context.Background())
 	if err != nil {
 		return err
 	}
 
-	subscriptions, subscriptionsRateLimit, err := client.GetSubscriptions(context.Background())
+	subscriptions, err := client.GetSubscriptions(context.Background())
 	if err != nil {
 		return err
 	}
 	fmt.Println("Webhooks")
 	printJSON(webhooks)
-	printJSON(webhookRateLimit)
 	fmt.Println("\nSubscriptions")
 	printJSON(subscriptions)
-	printJSON(subscriptionsRateLimit)
 
 	return nil
 }
@@ -73,24 +71,22 @@ func status(c *cli.Context) error {
 func create(c *cli.Context) error {
 	client := getClient()
 	url := c.String("url")
-	webhook, rateLimit, err := client.CreateWebhook(context.Background(), url)
+	webhook, err := client.CreateWebhook(context.Background(), url)
 	if err != nil {
 		return err
 	}
 	printJSON(webhook)
-	printJSON(rateLimit)
 	return nil
 }
 
 func delete(c *cli.Context) error {
 	client := getClient()
 	id := c.String("id")
-	rateLimit, err := client.DeleteWebhook(context.Background(), id)
+	err := client.DeleteWebhook(context.Background(), id)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Webhook %s successfully deleted\n", id)
-	printJSON(rateLimit)
 	return nil
 }
 

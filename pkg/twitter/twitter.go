@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mrjones/oauth"
@@ -16,8 +17,9 @@ import (
 )
 
 type twitter struct {
-	client *http.Client
-	bearer string
+	client  *http.Client
+	bearer  string
+	limiter twitterLimiter
 }
 
 type RateLimit struct {
@@ -26,16 +28,75 @@ type RateLimit struct {
 	NextWindow *time.Time
 }
 
+func (r RateLimit) String() string {
+	ceiling, remaining, nextWindow := "nil", "nil", "nil"
+	if r.Ceiling != nil {
+		ceiling = fmt.Sprintf("%d", *r.Ceiling)
+	}
+
+	if r.Remaining != nil {
+		remaining = fmt.Sprintf("%d", *r.Remaining)
+	}
+
+	if r.NextWindow != nil {
+		nextWindow = r.NextWindow.String()
+	}
+	return fmt.Sprintf("ceiling: %s, remaining %s, nextWindow %v", ceiling, remaining, nextWindow)
+}
+
+type twitterLimiter struct {
+	lock   sync.RWMutex
+	limits map[string]RateLimit
+}
+
+func (tl *twitterLimiter) getLimit(route string) RateLimit {
+	tl.lock.RLock()
+	defer tl.lock.RUnlock()
+	return tl.limits[route]
+}
+
+func (tl *twitterLimiter) setLimit(route string, response *http.Response) {
+	if response != nil {
+		limit := getRateLimit(response)
+		logrus.Debug(fmt.Sprintf("route %s received RateLimit %v", route, limit))
+		existing := tl.getLimit(route)
+		if existing.Remaining != nil && *existing.Remaining == 0 {
+			tl.lock.Lock()
+			defer tl.lock.Unlock()
+			tl.limits[route] = limit
+		}
+	}
+}
+
+func (tl *twitterLimiter) wait(ctx context.Context, route string) error {
+	limit := tl.getLimit(route)
+	var duration time.Duration = 0
+	if limit.Remaining != nil && *limit.Remaining == 0 {
+		if limit.NextWindow == nil {
+			// If twitter doesn't tell us when to try again, we'll give them 30 seconds
+			duration = time.Second * 30
+		} else {
+			duration = time.Until(*limit.NextWindow)
+		}
+	}
+	select {
+	case <-time.After(duration):
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("timeout %v on route %s", route, limit)
+	}
+}
+
 type Twitter interface {
-	GetWebhooks(ctx context.Context) ([]Webhook, RateLimit, error)
-	CreateWebhook(ctx context.Context, url string) (Webhook, RateLimit, error)
-	DeleteWebhook(ctx context.Context, webhookID string) (RateLimit, error)
-	GetSubscriptions(ctx context.Context) ([]Subscription, RateLimit, error)
-	DeleteSubscription(ctx context.Context, subscriptionID string) (RateLimit, error)
-	AddSubscription(ctx context.Context) (RateLimit, error)
-	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, RateLimit, error)
-	GetTweet(ctx context.Context, tweetID string) (*Tweet, RateLimit, error)
-	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, RateLimit, error)
+	GetWebhooks(ctx context.Context) ([]Webhook, error)
+	CreateWebhook(ctx context.Context, url string) (Webhook, error)
+	DeleteWebhook(ctx context.Context, webhookID string) error
+	GetSubscriptions(ctx context.Context) ([]Subscription, error)
+	DeleteSubscription(ctx context.Context, subscriptionID string) error
+	AddSubscription(ctx context.Context) error
+	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, error)
+	GetTweet(ctx context.Context, tweetID string) (*Tweet, error)
+	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, error)
 }
 
 type Webhook struct {
@@ -57,93 +118,103 @@ func NewTwitter(consumerKey string, consumerSecret string, accessToken string, a
 	return &twitter{client: client, bearer: bearerToken}
 }
 
-func (t *twitter) GetWebhooks(ctx context.Context) ([]Webhook, RateLimit, error) {
+func (t *twitter) GetWebhooks(ctx context.Context) ([]Webhook, error) {
 	var webhooks []Webhook
-	response, err := t.get(ctx, URL+"account_activity/all/dev/webhooks.json")
+	response, err := t.get(ctx, "get_webhooks", URL+"account_activity/all/dev/webhooks.json")
 	if err == nil {
 		webhooks = make([]Webhook, 0)
 		err = GetJSON(response, &webhooks)
 	}
-	return webhooks, getRateLimit(response), err
+	return webhooks, err
 }
 
-func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) (RateLimit, error) {
+func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) error {
+	err := t.limiter.wait(ctx, "delete_webhook")
 	url := fmt.Sprintf("%saccount_activity/all/dev/webhooks/%s.json", URL, webhookID)
-	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
-	rateLimit := RateLimit{}
 	if err == nil {
+		var request *http.Request
 		var response *http.Response
-		response, err = t.client.Do(request)
-		rateLimit = getRateLimit(response)
-		if err == nil {
-			var body []byte
-			body, err = ioutil.ReadAll(response.Body)
-			logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
+		request, err = http.NewRequestWithContext(ctx, "DELETE", url, nil)
+		if err != nil {
+			response, err = t.client.Do(request)
+			t.limiter.setLimit("delete_webhook", response)
+
 			if err == nil {
-				err = validateStatusCode(response)
+				var body []byte
+				body, err = ioutil.ReadAll(response.Body)
+				logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
+				if err == nil {
+					err = validateStatusCode(response)
+				}
 			}
 		}
 	}
-	return rateLimit, err
+	return err
 }
 
-func (t *twitter) CreateWebhook(ctx context.Context, webhookUrl string) (Webhook, RateLimit, error) {
+func (t *twitter) CreateWebhook(ctx context.Context, webhookUrl string) (Webhook, error) {
 	var webhook Webhook
-	response, err := t.post(ctx, URL+"account_activity/all/dev/webhooks.json", url.Values{"url": []string{webhookUrl}})
+	response, err := t.post(ctx, "create_webhook", URL+"account_activity/all/dev/webhooks.json", url.Values{"url": []string{webhookUrl}})
 	if err == nil {
 		err = GetJSON(response, &webhook)
 	}
-	return webhook, getRateLimit(response), err
+	return webhook, err
 }
 
-func (t *twitter) GetSubscriptions(ctx context.Context) ([]Subscription, RateLimit, error) {
+func (t *twitter) GetSubscriptions(ctx context.Context) ([]Subscription, error) {
 	type apiResponse struct {
 		Subscriptions []Subscription `json:"subscriptions"`
 	}
 	var subscriptions []Subscription
-	rateLimit := RateLimit{}
-	request, err := http.NewRequestWithContext(ctx, "GET", URL+"account_activity/all/dev/subscriptions/list.json", nil)
+	err := t.limiter.wait(ctx, "get_subscriptions")
 	if err == nil {
-		request.Header.Set("Authorization", "Bearer "+t.bearer)
-		client := http.Client{}
-		var response *http.Response
-		response, err = client.Do(request)
-		rateLimit = getRateLimit(response)
+		var request *http.Request
+		request, err = http.NewRequestWithContext(ctx, "GET", URL+"account_activity/all/dev/subscriptions/list.json", nil)
 		if err == nil {
-			api := apiResponse{}
-			err = GetJSON(response, &api)
+			request.Header.Set("Authorization", "Bearer "+t.bearer)
+			client := http.Client{}
+			var response *http.Response
+			response, err = client.Do(request)
+			t.limiter.setLimit("get_subscriptions", response)
 			if err == nil {
-				subscriptions = api.Subscriptions
+				api := apiResponse{}
+				err = GetJSON(response, &api)
+				if err == nil {
+					subscriptions = api.Subscriptions
+				}
 			}
 		}
 	}
-	return subscriptions, rateLimit, err
+	return subscriptions, err
 }
 
-func (t *twitter) DeleteSubscription(ctx context.Context, subscriptionID string) (RateLimit, error) {
-	url := fmt.Sprintf("%saccount_activity/all/dev/subscriptions/%s.json", URL, subscriptionID)
-	request, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
-	rateLimit := RateLimit{}
+func (t *twitter) DeleteSubscription(ctx context.Context, subscriptionID string) error {
+	err := t.limiter.wait(ctx, "delete_subscription")
 	if err == nil {
-		request.Header.Set("Authorization", "Bearer "+t.bearer)
-		client := http.Client{}
-		var response *http.Response
-		response, err = client.Do(request)
-		rateLimit = getRateLimit(response)
+		url := fmt.Sprintf("%saccount_activity/all/dev/subscriptions/%s.json", URL, subscriptionID)
+		var request *http.Request
+		request, err = http.NewRequestWithContext(ctx, "DELETE", url, nil)
 		if err == nil {
-			var body []byte
-			body, err = ioutil.ReadAll(response.Body)
-			logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
+			request.Header.Set("Authorization", "Bearer "+t.bearer)
+			client := http.Client{}
+			var response *http.Response
+			response, err = client.Do(request)
+			t.limiter.setLimit("delete_subscription", response)
 			if err == nil {
-				err = validateStatusCode(response)
+				var body []byte
+				body, err = ioutil.ReadAll(response.Body)
+				logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
+				if err == nil {
+					err = validateStatusCode(response)
+				}
 			}
 		}
 	}
-	return rateLimit, err
+	return err
 }
 
-func (t *twitter) AddSubscription(ctx context.Context) (RateLimit, error) {
-	response, err := t.post(ctx, URL+"account_activity/all/dev/subscriptions.json", url.Values{})
+func (t *twitter) AddSubscription(ctx context.Context) error {
+	response, err := t.post(ctx, "add_subscription", URL+"account_activity/all/dev/subscriptions.json", url.Values{})
 	if err == nil {
 		var body []byte
 		body, err = ioutil.ReadAll(response.Body)
@@ -152,39 +223,39 @@ func (t *twitter) AddSubscription(ctx context.Context) (RateLimit, error) {
 			err = validateStatusCode(response)
 		}
 	}
-	return getRateLimit(response), err
+	return err
 }
-func (t *twitter) GetTweet(ctx context.Context, tweetID string) (*Tweet, RateLimit, error) {
+func (t *twitter) GetTweet(ctx context.Context, tweetID string) (*Tweet, error) {
 	tweet := Tweet{}
-	response, rateLimit, err := t.GetTweetRaw(ctx, tweetID)
+	response, err := t.GetTweetRaw(ctx, tweetID)
 	if err == nil {
-		rateLimit = getRateLimit(response)
+		err = GetJSON(response, &tweet)
+	}
+	return &tweet, err
+}
+
+func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, error) {
+	var response *http.Response
+	err := t.limiter.wait(ctx, "get_tweet")
+	if err == nil {
+		var req *http.Request
+		req, err = http.NewRequestWithContext(ctx, "GET", URL+"statuses/show.json", nil)
 		if err == nil {
-			err = GetJSON(response, &tweet)
+			query := req.URL.Query()
+			query.Add("id", tweetID)
+			query.Add("include_entities", "true")
+			query.Add("include_ext_alt_text", "true")
+			query.Add("tweet_mode", "extended")
+			req.URL.RawQuery = query.Encode()
+			logrus.Debug(fmt.Sprintf("Request URL %s\n", req.URL.String()))
+			response, err = t.client.Do(req)
+			t.limiter.setLimit("get_tweet", response)
 		}
 	}
-	return &tweet, rateLimit, err
+	return response, err
 }
 
-func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, RateLimit, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", URL+"statuses/show.json", nil)
-	rateLimit := RateLimit{}
-	var response *http.Response
-	if err == nil {
-		query := req.URL.Query()
-		query.Add("id", tweetID)
-		query.Add("include_entities", "true")
-		query.Add("include_ext_alt_text", "true")
-		query.Add("tweet_mode", "extended")
-		req.URL.RawQuery = query.Encode()
-		logrus.Debug(fmt.Sprintf("Request URL %s\n", req.URL.String()))
-		response, err = t.client.Do(req)
-		rateLimit = getRateLimit(response)
-	}
-	return response, rateLimit, err
-}
-
-func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, RateLimit, error) {
+func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, error) {
 	tweet := Tweet{}
 	values := url.Values{
 		"status":                       []string{message},
@@ -194,28 +265,38 @@ func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string
 		"include_ext_alt_text":         []string{"true"},
 		"tweet_mode":                   []string{"extended"},
 	}
-	response, err := t.post(ctx, URL+"statuses/update.json", values)
+	response, err := t.post(ctx, "tweet_reply", URL+"statuses/update.json", values)
 	if err == nil {
 		err = GetJSON(response, &tweet)
 	}
-	return &tweet, getRateLimit(response), err
+	return &tweet, err
 }
 
-func (t *twitter) get(ctx context.Context, url string) (*http.Response, error) {
+func (t *twitter) get(ctx context.Context, endpoint string, url string) (*http.Response, error) {
+	var request *http.Request
 	var response *http.Response
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	err := t.limiter.wait(ctx, endpoint)
 	if err == nil {
-		response, err = t.client.Do(request)
+		request, err = http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err == nil {
+			response, err = t.client.Do(request)
+			t.limiter.setLimit(endpoint, response)
+		}
 	}
 	return response, err
 }
 
-func (t *twitter) post(ctx context.Context, url string, data url.Values) (*http.Response, error) {
+func (t *twitter) post(ctx context.Context, endpoint string, url string, data url.Values) (*http.Response, error) {
+	var request *http.Request
 	var response *http.Response
-	request, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
+	err := t.limiter.wait(ctx, endpoint)
 	if err == nil {
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		response, err = t.client.Do(request)
+		request, err = http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
+		if err == nil {
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			response, err = t.client.Do(request)
+			t.limiter.setLimit(endpoint, response)
+		}
 	}
 	return response, err
 }

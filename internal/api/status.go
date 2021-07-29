@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,9 @@ import (
 var newTwitter = twitter.NewTwitter
 
 func WebhookStatus(ctx context.Context, req *http.Request) APIResponse {
+	ctx, onComplete := context.WithTimeout(ctx, time.Second*30)
+	defer onComplete()
+
 	secrets := GetSecrets(ctx)
 	twitter := newTwitter(secrets.TwitterConsumerKey,
 		secrets.TwitterConsumerSecret,
@@ -36,7 +40,7 @@ func WebhookStatus(ctx context.Context, req *http.Request) APIResponse {
 }
 
 func ensureWebhook(ctx context.Context, twitter twitter.Twitter, webhookURL string) error {
-	webhooks, _, err := twitter.GetWebhooks(ctx)
+	webhooks, err := twitter.GetWebhooks(ctx)
 	if err != nil {
 		logrus.Error(fmt.Sprintf("Unable to get the current webhook status %v", err))
 		return err
@@ -50,12 +54,12 @@ func ensureWebhook(ctx context.Context, twitter twitter.Twitter, webhookURL stri
 
 	for _, webhook := range webhooks {
 		logrus.Info(fmt.Sprintf("Deleting webhook %v", loggify(webhook)))
-		_, err = twitter.DeleteWebhook(ctx, webhook.Id)
+		err = twitter.DeleteWebhook(ctx, webhook.Id)
 		if err != nil {
 			logrus.Error(fmt.Sprintf("Unable to delete the webhook, trying to continue %v", err))
 		}
 	}
-	webhook, _, err := twitter.CreateWebhook(ctx, webhookURL)
+	webhook, err := twitter.CreateWebhook(ctx, webhookURL)
 
 	if err != nil {
 		logrus.Error(fmt.Sprintf("Unable to create a new webhook %v", err))
@@ -67,7 +71,7 @@ func ensureWebhook(ctx context.Context, twitter twitter.Twitter, webhookURL stri
 }
 
 func ensureSubscription(ctx context.Context, twitter twitter.Twitter) error {
-	subscriptions, _, err := twitter.GetSubscriptions(ctx)
+	subscriptions, err := twitter.GetSubscriptions(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,12 +80,12 @@ func ensureSubscription(ctx context.Context, twitter twitter.Twitter) error {
 	}
 
 	for _, subscription := range subscriptions {
-		_, err = twitter.DeleteSubscription(ctx, subscription.Id)
+		err = twitter.DeleteSubscription(ctx, subscription.Id)
 		if err != nil {
 			logrus.Error(fmt.Sprintf("Unable to delete the webhook, trying to continue %v", err))
 		}
 	}
-	_, err = twitter.AddSubscription(ctx)
+	err = twitter.AddSubscription(ctx)
 	return err
 }
 

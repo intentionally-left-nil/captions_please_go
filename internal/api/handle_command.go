@@ -1,14 +1,15 @@
 package api
 
 import (
+	"context"
 	"strings"
 
-	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/urfave/cli/v2"
 )
 
-func handleCommand(command string, tweet *twitter.Tweet) error {
+func handleCommand(ctx context.Context, command string, job activityJob) <-chan ActivityResult {
 	builder := &strings.Builder{}
+	var out <-chan ActivityResult
 	helpTemplate := `Commands:
 {{range .VisibleCommands}}{{join .Names ", "}}{{":\t"}}{{.Usage}}{{"\n"}}{{end}}`
 	app := &cli.App{
@@ -18,7 +19,12 @@ func handleCommand(command string, tweet *twitter.Tweet) error {
 				Name:  "help",
 				Usage: "Get info about the actions I can take",
 				Action: func(c *cli.Context) error {
-					return cli.ShowAppHelp(c)
+					err := cli.ShowAppHelp(c)
+					if err == nil {
+						reply := builder.String()
+						out = HandleHelp(ctx, job.tweet, reply)
+					}
+					return err
 				},
 			},
 			{
@@ -30,5 +36,15 @@ func handleCommand(command string, tweet *twitter.Tweet) error {
 		Writer:                builder,
 	}
 	err := app.Run(strings.Split("captions_please "+command, " "))
-	return err
+	if err != nil {
+		out := make(chan ActivityResult, 1)
+		result := ActivityResult{tweet: job.tweet, err: err, action: "handle command"}
+		out <- result
+		close(out)
+	}
+
+	if out == nil {
+		panic("handleCommand returning nil out")
+	}
+	return out
 }

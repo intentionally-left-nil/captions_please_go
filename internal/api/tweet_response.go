@@ -1,17 +1,34 @@
 package api
 
 import (
+	"context"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/twitter-text-go/validate"
 )
 
 var parseTweet = validate.ParseTweet
 var parseTweetSecondPass = validate.ParseTweet
 
-func prepareTweets(message string) ([]string, error) {
+func replyWithMultipleTweets(ctx context.Context, client twitter.Twitter, tweetId string, message string) (*twitter.Tweet, error) {
+	var tweet *twitter.Tweet
+	messages, err := splitMessage(message)
+	if err == nil {
+		for _, message := range messages {
+			tweet, err = client.TweetReply(ctx, tweetId, message)
+			if err == nil {
+				break
+			}
+			tweetId = tweet.Id
+		}
+	}
+	return tweet, err
+}
+
+func splitMessage(message string) ([]string, error) {
 	if !utf8.ValidString(message) {
 		return nil, validate.InvalidCharacterError{}
 	}

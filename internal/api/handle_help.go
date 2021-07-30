@@ -42,7 +42,7 @@ func WithHelp(ctx context.Context, config HelpConfig, client twitter.Twitter) co
 			for job := range state.jobs {
 				logrus.Debug(fmt.Sprintf("Worker %d processing tweet %s", i, job.tweetId))
 				result := ActivityResult{action: "Reply with help message"}
-				_, err := client.TweetReply(job.ctx, job.tweetId, job.message)
+				_, err := replyWithMultipleTweets(job.ctx, client, job.tweetId, job.message)
 				result.err = err
 				logrus.Debug(fmt.Sprintf("Worker %d finished processing tweet %s", i, job.tweetId))
 				job.out <- result

@@ -274,12 +274,11 @@ func TestTweetMentions(t *testing.T) {
 }
 
 func TestTweetMedia(t *testing.T) {
-
 	altText := "user caption"
 	tests := []struct {
 		name     string
 		json     string
-		expected []media
+		expected []Media
 	}{
 		{
 			name:     "No extended_entities",
@@ -299,12 +298,12 @@ func TestTweetMedia(t *testing.T) {
 		{
 			name:     "Has media",
 			json:     "{\"extended_entities\": {\"media\":[{\"type\":\"photo\", \"media_url_https\":\"https://terminal.space\"}]}}",
-			expected: []media{{Type: "photo", Url: "https://terminal.space"}},
+			expected: []Media{{Type: "photo", Url: "https://terminal.space"}},
 		},
 		{
 			name:     "Has media with alt text",
 			json:     "{\"extended_entities\": {\"media\":[{\"type\":\"photo\", \"media_url_https\":\"https://terminal.space\", \"ext_alt_text\": \"user caption\"}]}}",
-			expected: []media{{Type: "photo", Url: "https://terminal.space", AltText: &altText}},
+			expected: []Media{{Type: "photo", Url: "https://terminal.space", AltText: &altText}},
 		},
 	}
 	for _, test := range tests {
@@ -312,6 +311,43 @@ func TestTweetMedia(t *testing.T) {
 			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
 			media := tweet.Media()
+			assert.Equal(t, test.expected, media)
+		})
+	}
+}
+
+func TestTweetFallbackMedia(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected []Media
+	}{
+		{
+			name:     "No entities",
+			json:     "{}",
+			expected: nil,
+		},
+		{
+			name:     "No media",
+			json:     "{\"entities\": {}}",
+			expected: nil,
+		},
+		{
+			name:     "Empty media",
+			json:     "{\"entities\": {\"media\":[]}}",
+			expected: nil,
+		},
+		{
+			name:     "Has media",
+			json:     "{\"entities\": {\"media\":[{\"type\":\"photo\", \"media_url_https\":\"https://terminal.space\"}]}}",
+			expected: []Media{{Type: "photo", Url: "https://terminal.space"}},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tweet := rawTweet{}
+			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
+			media := tweet.FallbackMedia()
 			assert.Equal(t, test.expected, media)
 		})
 	}

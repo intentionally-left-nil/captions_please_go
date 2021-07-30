@@ -69,12 +69,12 @@ func TestHandleHelp(t *testing.T) {
 				tweet := twitter.Tweet{}
 				count := atomic.AddUint64(&delayCount, 1)
 				if count <= uint64(test.timesToDelay) {
-					time.Sleep(time.Millisecond * 200)
+					time.Sleep(time.Millisecond * 100)
 				}
 				return &tweet, test.twitterErr
 			}
 			mockTwitter := &twitter_test.MockTwitter{TweetReplyMock: tweetReplyMock}
-			config := HelpConfig{Workers: 1, Timeout: time.Millisecond * 100, PendingHelpMessages: 0}
+			config := HelpConfig{Workers: 1, Timeout: time.Millisecond * 50, PendingHelpMessages: 0}
 			ctx = WithHelp(ctx, config, mockTwitter)
 
 			outs := make([]<-chan ActivityResult, len(test.messages))

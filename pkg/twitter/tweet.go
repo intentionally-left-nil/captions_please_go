@@ -12,7 +12,9 @@ type Tweet struct {
 	Type          TweetType
 	Mentions      []Mention
 	User          User
-	Media         []media
+	Media         []Media
+	FallbackMedia []Media
+	QuoteTweet    *Tweet
 }
 
 type User struct {
@@ -43,7 +45,8 @@ type rawTweet struct {
 	ExtendedTweet    *extendedTweet          `json:"extended_tweet"`
 	Truncated        bool                    `json:"truncated"`
 	ParentTweetId    string                  `json:"in_reply_to_user_id_str"`
-	QuoteTweet       bool                    `json:"is_quote_status"`
+	IsQuoteTweet     bool                    `json:"is_quote_status"`
+	QuoteTweet       *Tweet                  `json:"quoted_status"`
 	RetweetedStatus  *map[string]interface{} `json:"retweeted_status"`
 	Entities         *entities               `json:"entities"`
 	ExtendedEntities *entities               `json:"extended_entities"`
@@ -60,7 +63,7 @@ type rawMention struct {
 	Indices []int `json:"indices"`
 }
 
-type media struct {
+type Media struct {
 	Id      string  `json:"id_str"`
 	Url     string  `json:"media_url_https"`
 	Type    string  `json:"type"`
@@ -69,7 +72,7 @@ type media struct {
 
 type entities struct {
 	Mentions []rawMention `json:"user_mentions"`
-	Media    []media      `json:"media"`
+	Media    []Media      `json:"media"`
 }
 
 func (t *rawTweet) Text() (string, error) {
@@ -124,7 +127,7 @@ func (t *rawTweet) Text() (string, error) {
 
 func (tweet *rawTweet) TweetType() TweetType {
 
-	if tweet.QuoteTweet {
+	if tweet.IsQuoteTweet {
 		return QuoteTweet
 	}
 	if tweet.RetweetedStatus != nil {
@@ -166,9 +169,16 @@ func (t *rawTweet) Mentions() ([]Mention, error) {
 	return mentions, err
 }
 
-func (t *rawTweet) Media() []media {
+func (t *rawTweet) Media() []Media {
 	if t.ExtendedEntities != nil && t.ExtendedEntities.Media != nil && len(t.ExtendedEntities.Media) > 0 {
 		return t.ExtendedEntities.Media
+	}
+	return nil
+}
+
+func (t *rawTweet) FallbackMedia() []Media {
+	if t.Entities != nil && t.Entities.Media != nil && len(t.Entities.Media) > 0 {
+		return t.Entities.Media
 	}
 	return nil
 }
@@ -198,6 +208,7 @@ func (t *Tweet) UnmarshalJSON(bytes []byte) error {
 		return err
 	}
 	t.Media = raw.Media()
+	t.FallbackMedia = raw.FallbackMedia()
 	return nil
 }
 

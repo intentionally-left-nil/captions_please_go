@@ -55,7 +55,8 @@ type activityStateKey int
 
 const theActivityStateKey activityStateKey = 0
 
-func WithAccountActivity(ctx context.Context, config ActivityConfig, client twitter.Twitter) context.Context {
+func WithAccountActivity(ctx context.Context, config ActivityConfig, client twitter.Twitter) (context.Context, error) {
+	var err error
 	validateActivityConfig(&config)
 	logrus.Debug(fmt.Sprintf("Initializing AccountActivity with %d workers and %d outstanding jobs", config.Workers, config.MaxOutstandingJobs))
 	state := &activityState{
@@ -65,6 +66,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
 	ctx = WithHelp(ctx, config.Help, client)
 	ctx = WithAltText(ctx, client)
+	ctx, err = WithOCR(ctx, client)
 
 	for i := 0; i < int(config.Workers); i++ {
 		go func(i int) {
@@ -83,7 +85,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 		<-ctx.Done()
 		close(state.jobs)
 	}()
-	return ctx
+	return ctx, err
 }
 
 func singleActivityResult(result ActivityResult) <-chan ActivityResult {

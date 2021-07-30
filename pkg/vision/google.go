@@ -56,6 +56,9 @@ func (g *google) GetOCR(url string) (*OCRResult, error) {
 	}
 	return result, err
 }
+func (g *google) Close() error {
+	return g.client.Close()
+}
 
 func GoogleOCR(privateKeyId string, privateKey string, url string) (*pb.TextAnnotation, error) {
 	credentials := map[string]string{

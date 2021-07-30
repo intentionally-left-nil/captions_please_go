@@ -17,6 +17,7 @@ type VisionResult struct {
 
 type OCR interface {
 	GetOCR(url string) (*OCRResult, error)
+	Close() error
 }
 
 type Describer interface {

@@ -86,10 +86,12 @@ func processTweet(c *cli.Context) error {
 			var ctx context.Context
 			ctx, err = api.WithSecrets(context.Background())
 			if err == nil {
-				ctx = api.WithAccountActivity(ctx, api.ActivityConfig{}, client)
-				_, out := api.AccountActivityWebhook(ctx, request)
-				for result := range out {
-					printJSON(result)
+				ctx, err = api.WithAccountActivity(ctx, api.ActivityConfig{}, client)
+				if err == nil {
+					_, out := api.AccountActivityWebhook(ctx, request)
+					for result := range out {
+						printJSON(result)
+					}
 				}
 			}
 		}

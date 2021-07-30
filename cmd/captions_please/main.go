@@ -38,7 +38,10 @@ func main() {
 		},
 	}
 
-	ctx = api.WithAccountActivity(ctx, config, client)
+	ctx, err = api.WithAccountActivity(ctx, config, client)
+	if err != nil {
+		panic(err)
+	}
 
 	handler := func(w http.ResponseWriter, req *http.Request) {
 		var response api.APIResponse

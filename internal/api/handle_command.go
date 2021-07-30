@@ -31,6 +31,14 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 				Name:   "auto",
 				Hidden: true,
 			},
+			{
+				Name:  "alt_text",
+				Usage: "See what description the user gave when creating the tweet",
+				Action: func(c *cli.Context) error {
+					out = HandleAltText(ctx, job.tweet)
+					return nil
+				},
+			},
 		},
 		CustomAppHelpTemplate: helpTemplate,
 		Writer:                builder,

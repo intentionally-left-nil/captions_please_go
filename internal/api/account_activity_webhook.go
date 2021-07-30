@@ -64,6 +64,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
 	ctx = WithHelp(ctx, config.Help, client)
+	ctx = WithAltText(ctx, client)
 
 	for i := 0; i < int(config.Workers); i++ {
 		go func(i int) {

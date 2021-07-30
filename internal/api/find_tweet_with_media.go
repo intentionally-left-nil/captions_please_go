@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
@@ -42,7 +41,7 @@ func findTweetWithMediaHelper(ctx context.Context, client twitter.Twitter, tweet
 	var foundTweet *twitter.Tweet
 	var err error
 	if depth < 0 {
-		err = errors.New("unable to find tweet with media")
+		err = &ErrNoPhotosFound{fmt.Errorf("no photo to search for %s", tweet.Id)}
 	}
 
 	if err == nil {

@@ -171,7 +171,7 @@ func getActivityState(ctx context.Context) *activityState {
 }
 
 func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan ActivityResult {
-	botMention := getMention(job.botId, job.tweet)
+	botMention := getVisibleMention(job.botId, job.tweet)
 	if botMention == nil || job.tweet.User.Id == job.botId {
 		result := ActivityResult{action: "User didnt mention us. Ignoring"}
 		out := make(chan ActivityResult)
@@ -185,9 +185,9 @@ func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan Activit
 	return handleCommand(ctx, command, job)
 }
 
-func getMention(botId string, tweet *twitter.Tweet) *twitter.Mention {
+func getVisibleMention(botId string, tweet *twitter.Tweet) *twitter.Mention {
 	for _, mention := range tweet.Mentions {
-		if mention.Id == botId {
+		if mention.Id == botId && mention.Visible {
 			return &mention
 		}
 	}
@@ -196,13 +196,14 @@ func getMention(botId string, tweet *twitter.Tweet) *twitter.Mention {
 
 func getCommand(tweet *twitter.Tweet, mention *twitter.Mention) string {
 	command := ""
-	if mention.EndIndex+1 <= len(tweet.Text) {
-		command = strings.TrimSpace(tweet.Text[mention.EndIndex:])
+	if mention.EndIndex+1 <= len(tweet.FullText) {
+		command = strings.TrimSpace(tweet.FullText[mention.EndIndex+1:])
 	}
 
 	if command == "" {
 		command = "auto"
 	}
+	logrus.Debug(fmt.Sprintf("command to parse is %s", command))
 	return command
 }
 

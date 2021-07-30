@@ -16,8 +16,8 @@ func TestUnmarshalTweet(t *testing.T) {
 	}{
 		{
 			name:     "Parses a valid tweet",
-			json:     "{\"id_str\": \"123\", \"text\": \"!hello world!\", \"display_text_range\": [1,12]}",
-			expected: Tweet{Id: "123", Text: "hello world"},
+			json:     "{\"id_str\": \"123\", \"text\": \"!hello world!\", \"display_text_range\": [1,12], \"in_reply_to_status_id_str\":\"234\"}",
+			expected: Tweet{Id: "123", FullText: "!hello world!", VisibleText: "hello world", ParentTweetId: "234"},
 		},
 		{
 			name:     "Errors if the id is missing",
@@ -54,7 +54,7 @@ func TestUnmarshalTweet(t *testing.T) {
 	}
 }
 
-func TestTweetText(t *testing.T) {
+func TestTweetTextInfo(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
@@ -177,12 +177,12 @@ func TestTweetText(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			tweet := rawTweet{}
 			assert.NoError(t, json.Unmarshal([]byte(test.json), &tweet))
-			text, err := tweet.Text()
+			ti, err := tweet.TextInfo()
 			if test.hasError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, test.expected, text)
+				assert.Equal(t, test.expected, ti.Visible())
 			}
 		})
 	}
@@ -230,12 +230,25 @@ func TestTweetMentions(t *testing.T) {
 		{
 			name:     "Returns a mention",
 			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[0, 21], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]}]}}",
-			expected: []Mention{{User: User{Id: "123", Username: "captions_please", Display: "myName"}, StartIndex: 0, EndIndex: 16}},
+			expected: []Mention{{User: User{Id: "123", Username: "captions_please", Display: "myName"}, StartIndex: 0, EndIndex: 16, Visible: true}},
 		},
 		{
 			name:     "Gracefully handles no entities",
 			json:     "{}",
 			expected: nil,
+		},
+		{
+			name:     "Message without any visible mentions",
+			json:     "{\"text\":\"@captions_please help\", \"display_text_range\":[17, 21], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]}]}}",
+			expected: []Mention{{User: User{Id: "123", Username: "captions_please", Display: "myName"}, Visible: false, StartIndex: 0, EndIndex: 16}},
+		},
+		{
+			name: "Message with both visible and invisible mentions",
+			json: "{\"text\":\"@captions_please @captions_please help\", \"display_text_range\":[17, 38], \"entities\":{\"user_mentions\":[{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[0,16]},{\"id_str\": \"123\", \"screen_name\": \"captions_please\", \"name\": \"myName\", \"indices\":[17,33]}]}}",
+			expected: []Mention{
+				{User: User{Id: "123", Username: "captions_please", Display: "myName"}, StartIndex: 0, EndIndex: 16, Visible: false},
+				{User: User{Id: "123", Username: "captions_please", Display: "myName"}, StartIndex: 17, EndIndex: 33, Visible: true},
+			},
 		},
 		{
 			name:     "Message without any mentions",

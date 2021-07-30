@@ -7,7 +7,8 @@ import (
 
 type Tweet struct {
 	Id            string
-	Text          string
+	FullText      string
+	VisibleText   string
 	ParentTweetId string
 	Type          TweetType
 	Mentions      []Mention
@@ -35,6 +36,7 @@ type Mention struct {
 	User
 	StartIndex int `json:"start"`
 	EndIndex   int `json:"end"`
+	Visible    bool
 }
 
 type rawTweet struct {
@@ -44,7 +46,7 @@ type rawTweet struct {
 	VisibleRange     *[]int                  `json:"display_text_range"`
 	ExtendedTweet    *extendedTweet          `json:"extended_tweet"`
 	Truncated        bool                    `json:"truncated"`
-	ParentTweetId    string                  `json:"in_reply_to_user_id_str"`
+	ParentTweetId    string                  `json:"in_reply_to_status_id_str"`
 	IsQuoteTweet     bool                    `json:"is_quote_status"`
 	QuoteTweet       *Tweet                  `json:"quoted_status"`
 	RetweetedStatus  *map[string]interface{} `json:"retweeted_status"`
@@ -75,9 +77,19 @@ type entities struct {
 	Media    []Media      `json:"media"`
 }
 
-func (t *rawTweet) Text() (string, error) {
+type textInfo struct {
+	full  string
+	start int
+	end   int
+}
+
+func (ti textInfo) Visible() string {
+	return ti.full[ti.start:ti.end]
+}
+
+func (t *rawTweet) TextInfo() (textInfo, error) {
 	var err error
-	var text string
+	info := textInfo{}
 	if t.Truncated {
 		et := t.ExtendedTweet
 		if et == nil {
@@ -89,8 +101,7 @@ func (t *rawTweet) Text() (string, error) {
 		}
 
 		if err == nil {
-			start, end := et.VisibleRange[0], et.VisibleRange[1]
-			text = (*et.Text)[start:end]
+			info = textInfo{full: *et.Text, start: et.VisibleRange[0], end: et.VisibleRange[1]}
 		}
 	} else if t.FullText != nil {
 		var visibleRange []int
@@ -101,8 +112,7 @@ func (t *rawTweet) Text() (string, error) {
 		}
 		err = validateRange(*t.FullText, visibleRange, "full_text")
 		if err == nil {
-			start, end := (visibleRange)[0], (visibleRange)[1]
-			text = (*t.FullText)[start:end]
+			info = textInfo{full: *t.FullText, start: visibleRange[0], end: visibleRange[1]}
 		}
 	} else if t.TruncatedText != nil {
 		var visibleRange []int
@@ -116,13 +126,12 @@ func (t *rawTweet) Text() (string, error) {
 
 		err = validateRange(*t.TruncatedText, visibleRange, "text")
 		if err == nil {
-			start, end := visibleRange[0], visibleRange[1]
-			text = (*t.TruncatedText)[start:end]
+			info = textInfo{full: *t.TruncatedText, start: visibleRange[0], end: visibleRange[1]}
 		}
 	} else {
 		err = invalidTweet("text", nil)
 	}
-	return text, err
+	return info, err
 }
 
 func (tweet *rawTweet) TweetType() TweetType {
@@ -142,28 +151,30 @@ func (t *rawTweet) Mentions() ([]Mention, error) {
 
 	if t.Entities != nil && t.Entities.Mentions != nil && len(t.Entities.Mentions) > 0 {
 		mentions = []Mention{}
-		var displayText *string
-		for i, rawMention := range t.Entities.Mentions {
-			if displayText == nil {
-				var text string
-				text, err = t.Text()
+		var textInfo textInfo
+		textInfo, err = t.TextInfo()
+		if err == nil {
+			for i, rawMention := range t.Entities.Mentions {
+
 				if err == nil {
-					displayText = &text
+					err = validateRange(textInfo.full, rawMention.Indices, fmt.Sprintf("mention[%d]", i))
+					if err == nil && rawMention.Id == "" {
+						err = invalidTweet(fmt.Sprintf("mention[%d].Id", i), rawMention.Id)
+					}
 				}
-			}
 
-			if err == nil {
-				err = validateRange(*displayText, rawMention.Indices, fmt.Sprintf("mention[%d]", i))
-				if err == nil && rawMention.Id == "" {
-					err = invalidTweet(fmt.Sprintf("mention[%d].Id", i), rawMention.Id)
+				if err != nil {
+					break
 				}
+				start, end := rawMention.Indices[0], rawMention.Indices[1]
+				isVisible := start >= textInfo.start && end <= textInfo.end
+				mention := Mention{
+					User:       rawMention.User,
+					StartIndex: start,
+					EndIndex:   end,
+					Visible:    isVisible}
+				mentions = append(mentions, mention)
 			}
-
-			if err != nil {
-				break
-			}
-			mention := Mention{User: rawMention.User, StartIndex: rawMention.Indices[0], EndIndex: rawMention.Indices[1]}
-			mentions = append(mentions, mention)
 		}
 	}
 	return mentions, err
@@ -194,10 +205,13 @@ func (t *Tweet) UnmarshalJSON(bytes []byte) error {
 		return invalidTweet("id", t.Id)
 	}
 
-	t.Text, err = raw.Text()
+	var ti textInfo
+	ti, err = raw.TextInfo()
 	if err != nil {
 		return err
 	}
+	t.VisibleText = ti.Visible()
+	t.FullText = ti.full
 
 	t.ParentTweetId = raw.ParentTweetId
 	t.User = raw.User

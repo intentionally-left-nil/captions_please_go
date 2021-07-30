@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/twitter-text-go/validate"
+	"github.com/sirupsen/logrus"
 )
 
 var parseTweet = validate.ParseTweet
@@ -16,10 +18,12 @@ var parseTweetSecondPass = validate.ParseTweet
 func replyWithMultipleTweets(ctx context.Context, client twitter.Twitter, tweetId string, message string) (*twitter.Tweet, error) {
 	var tweet *twitter.Tweet
 	messages, err := splitMessage(message)
+	logrus.Debug(fmt.Sprintf("Split up the message into chunks had chunks %v and error %v", messages, err))
 	if err == nil {
-		for _, message := range messages {
+		for i, message := range messages {
+			logrus.Debug(fmt.Sprintf("Sending message chunk %d/%d: %s", i, len(messages), message))
 			tweet, err = client.TweetReply(ctx, tweetId, message)
-			if err == nil {
+			if err != nil {
 				break
 			}
 			tweetId = tweet.Id

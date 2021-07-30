@@ -62,6 +62,7 @@ func TestReplyWithMultipleTweets(t *testing.T) {
 			}}
 
 			tweet, err := replyWithMultipleTweets(context.Background(), mockTwitter, "0", test.message)
+			assert.Equal(t, len(test.expected), tweetId)
 			if test.shouldError {
 				assert.Error(t, err)
 			} else {

@@ -40,7 +40,6 @@ func TestHandleOCR(t *testing.T) {
 	tests := []struct {
 		name      string
 		tweet     *twitter.Tweet
-		replyErr  error
 		googleErr error
 		messages  []string
 		hasErr    bool
@@ -84,7 +83,7 @@ func TestHandleOCR(t *testing.T) {
 			mockTwitter := twitter_test.MockTwitter{T: t, TweetReplyMock: func(tweetID, message string) (*twitter.Tweet, error) {
 				tweet := twitter.Tweet{Id: "123"}
 				sentMessages = append(sentMessages, message)
-				return &tweet, test.replyErr
+				return &tweet, nil
 			}}
 
 			mockGoogle := vision_test.MockGoogle{T: t, GetOCRMock: func(url string) (result *vision.OCRResult, err error) {

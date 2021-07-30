@@ -2,10 +2,12 @@ package vision
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v3.1/computervision"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/sirupsen/logrus"
 )
 
 type azure struct {
@@ -18,21 +20,23 @@ func NewAzureVision(computerVisionKey string) Describer {
 	return &azure{client: client}
 }
 
-const captionThreshold = 0.4
-
 func (a *azure) Describe(url string) ([]VisionResult, error) {
 	var result []VisionResult
 	ctx := context.Background()
 	imageURL := computervision.ImageURL{URL: &url}
 	description, err := a.client.DescribeImage(ctx, imageURL, nil, "en", nil)
+	logDebugJSON(description)
 	if err == nil && description.Captions != nil {
 		result = make([]VisionResult, 0, len(*description.Captions))
 		for i, caption := range *description.Captions {
-			if caption.Confidence != nil && caption.Text != nil && *caption.Confidence > captionThreshold {
+			if caption.Confidence != nil && caption.Text != nil {
 				result = result[:len(result)+1]
 				result[i] = VisionResult{Text: *caption.Text, Confidence: float32(*caption.Confidence)}
 			}
 		}
+		logDebugJSON(result)
+	} else {
+		logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
 	}
 	return result, err
 }

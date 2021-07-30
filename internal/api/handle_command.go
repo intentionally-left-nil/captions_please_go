@@ -41,9 +41,17 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 			},
 			{
 				Name:  "ocr",
-				Usage: "Attempt to scan the immage for text",
+				Usage: "Scan the immage for text",
 				Action: func(c *cli.Context) error {
 					out = HandleOCR(ctx, job.tweet)
+					return nil
+				},
+			},
+			{
+				Name:  "describe",
+				Usage: "Use AI to create a description of the image",
+				Action: func(c *cli.Context) error {
+					out = HandleDescribe(ctx, job.tweet)
 					return nil
 				},
 			},

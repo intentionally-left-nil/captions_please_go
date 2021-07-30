@@ -66,25 +66,28 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
 	ctx = WithHelp(ctx, config.Help, client)
 	ctx = WithAltText(ctx, client)
+	ctx = WithDescribe(ctx, client)
 	ctx, err = WithOCR(ctx, client)
 
-	for i := 0; i < int(config.Workers); i++ {
-		go func(i int) {
-			logrus.Debug(fmt.Sprintf("Initializing Activity worker %d", i))
-			for job := range state.jobs {
-				logrus.Debug(fmt.Sprintf("Worker %d processing job %s", i, job.tweet.Id))
-				for result := range handleNewTweetActivity(ctx, job) {
-					job.out <- result
+	if err == nil {
+		for i := 0; i < int(config.Workers); i++ {
+			go func(i int) {
+				logrus.Debug(fmt.Sprintf("Initializing Activity worker %d", i))
+				for job := range state.jobs {
+					logrus.Debug(fmt.Sprintf("Worker %d processing job %s", i, job.tweet.Id))
+					for result := range handleNewTweetActivity(ctx, job) {
+						job.out <- result
+					}
+					close(job.out)
 				}
-				close(job.out)
-			}
-		}(i)
-	}
+			}(i)
+		}
 
-	go func() {
-		<-ctx.Done()
-		close(state.jobs)
-	}()
+		go func() {
+			<-ctx.Done()
+			close(state.jobs)
+		}()
+	}
 	return ctx, err
 }
 

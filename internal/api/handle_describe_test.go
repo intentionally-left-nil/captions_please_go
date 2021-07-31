@@ -97,6 +97,7 @@ func TestHandleDescribe(t *testing.T) {
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.1, 0.1},
 			messages:    []string{"I'm at a loss for words, sorry!"},
+			hasErr:      true,
 		},
 		{
 			name:        "Returns error message if azure fails",

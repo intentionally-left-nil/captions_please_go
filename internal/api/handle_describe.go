@@ -54,7 +54,11 @@ func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityRe
 
 		replies := extractReplies(responses, func(response mediaResponse) string {
 			err = response.err
-			return "I encountered difficulties interpreting the image. Sorry!"
+			reply := response.reply
+			if reply == "" {
+				reply = "I encountered difficulties interpreting the image. Sorry!"
+			}
+			return reply
 		})
 		addIndexToMessages(&replies)
 		sendErr := sendReplies(ctx, state.client, tweet, replies)
@@ -103,8 +107,8 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
-			reply := formatVisionReply(jobResult.results)
-			response = mediaResponse{responseType: foundVisionResponse, reply: reply}
+			reply, err := formatVisionReply(jobResult.results)
+			response = mediaResponse{responseType: foundVisionResponse, reply: reply, err: err}
 		} else if errors.As(jobResult.err, &ErrWrongMediaTypeType) {
 			response = mediaResponse{responseType: doNothingResponse}
 		} else {
@@ -115,7 +119,8 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 	return responses
 }
 
-func formatVisionReply(visionResults []vision.VisionResult) string {
+func formatVisionReply(visionResults []vision.VisionResult) (string, error) {
+	var err error = nil
 	filteredResults := make([]vision.VisionResult, 0, len(visionResults))
 	for i, visionResult := range visionResults {
 		if i > 2 || visionResult.Confidence < lowVisionConfidenceCutoff {
@@ -127,11 +132,12 @@ func formatVisionReply(visionResults []vision.VisionResult) string {
 	reply := ""
 	if len(filteredResults) == 0 {
 		reply = "I'm at a loss for words, sorry!"
+		err = &ErrNoPhotosFound{}
 	} else {
 		reply = filteredResults[0].Text
 		for _, result := range filteredResults[1:] {
 			reply = reply + ". It might also be " + result.Text
 		}
 	}
-	return reply
+	return reply, err
 }

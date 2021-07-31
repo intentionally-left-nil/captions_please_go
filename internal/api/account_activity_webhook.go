@@ -67,6 +67,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	ctx = WithHelp(ctx, config.Help, client)
 	ctx = WithAltText(ctx, client)
 	ctx = WithDescribe(ctx, client)
+	ctx = WithAuto(ctx, client)
 	ctx, err = WithOCR(ctx, client)
 
 	if err == nil {

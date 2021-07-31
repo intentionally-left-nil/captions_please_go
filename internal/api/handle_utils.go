@@ -18,6 +18,7 @@ const (
 	missingAltTextResponse
 	foundOCRResponse
 	foundVisionResponse
+	mergedOCRVisionResponse
 )
 
 type mediaResponse struct {

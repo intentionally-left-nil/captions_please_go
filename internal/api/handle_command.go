@@ -30,6 +30,10 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 			{
 				Name:   "auto",
 				Hidden: true,
+				Action: func(c *cli.Context) error {
+					out = HandleAuto(ctx, job.tweet)
+					return nil
+				},
 			},
 			{
 				Name:  "alt_text",

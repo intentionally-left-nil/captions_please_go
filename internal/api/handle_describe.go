@@ -60,7 +60,6 @@ func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityRe
 			}
 			return reply
 		})
-		addIndexToMessages(&replies)
 		sendErr := sendReplies(ctx, state.client, tweet, replies)
 		if err == nil {
 			err = sendErr
@@ -108,11 +107,11 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
 			reply, err := formatVisionReply(jobResult.results)
-			response = mediaResponse{responseType: foundVisionResponse, reply: reply, err: err}
+			response = mediaResponse{index: i, responseType: foundVisionResponse, reply: reply, err: err}
 		} else if errors.As(jobResult.err, &ErrWrongMediaTypeType) {
-			response = mediaResponse{responseType: doNothingResponse}
+			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			response = mediaResponse{responseType: foundVisionResponse, err: jobResult.err}
+			response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
 		}
 		responses[i] = response
 	}

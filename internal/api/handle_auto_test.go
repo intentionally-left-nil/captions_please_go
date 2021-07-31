@@ -34,7 +34,7 @@ func TestHandleAuto(t *testing.T) {
 	oneVideo := []twitter.Media{{Type: "video", Url: "video.mp4"}}
 	onePhotoWithoutAlt := []twitter.Media{{Type: "photo", Url: "photo.jpg"}}
 	longPhoto := []twitter.Media{{Type: "photo", Url: threeHundredChars}}
-	mixedMedia := []twitter.Media{{Type: "photo", Url: "photo.jpg", AltText: &altText}, {Type: "video", Url: "video.mp4"}}
+	mixedMedia := []twitter.Media{{Type: "photo", Url: "photo1.jpg", AltText: &altText}, {Type: "video", Url: "video.mp4"}, {Type: "photo", Url: "photo2.jpg"}}
 	tweetWithOnePhoto := twitter.Tweet{Id: "withOnePhoto", User: user, Media: onePhoto}
 	tweetWithOneVideo := twitter.Tweet{Id: "withOneVideo", User: user, Media: oneVideo}
 	tweetWithoutAlt := twitter.Tweet{Id: "onePhotoWithoutAlt", User: user, Media: onePhotoWithoutAlt}
@@ -55,9 +55,11 @@ func TestHandleAuto(t *testing.T) {
 			messages: []string{altText},
 		},
 		{
-			name:     "Returns the alt text of mixed media",
-			tweet:    &tweetWithMixedMedia,
-			messages: []string{altText},
+			name:        "Returns the alt text of mixed media",
+			tweet:       &tweetWithMixedMedia,
+			googleErr:   errors.New("dont be evil amiright"),
+			confidences: []float32{0.8},
+			messages:    []string{"Image 1: this photo has some cool alt text\nImage 3: photo2.jpg is so pretty(0.8)"},
 		},
 		{
 			name:        "Returns both the OCR and a description for a short message",

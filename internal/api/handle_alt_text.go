@@ -29,7 +29,6 @@ func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityRes
 		responses := getAltTextMediaResponse(ctx, tweet, mediaTweet)
 		responses = removeDoNothings(responses)
 		replies := extractReplies(responses, nil) // alt text doesn't produce errorss
-		addIndexToMessages(&replies)
 		err = sendReplies(ctx, state.client, tweet, replies)
 	} else {
 		sendReplyForBadMedia(ctx, state.client, tweet, err)
@@ -45,12 +44,12 @@ func getAltTextMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTwe
 	for i, media := range mediaTweet.Media {
 		var response mediaResponse
 		if media.AltText != nil {
-			response = mediaResponse{responseType: foundAltTextResponse, reply: *media.AltText}
+			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: *media.AltText}
 		} else if media.Type == "photo" {
 			reply := fmt.Sprintf("%s didn't provide any alt text when posting the image", tweet.User.Display)
-			response = mediaResponse{responseType: missingAltTextResponse, reply: reply}
+			response = mediaResponse{index: i, responseType: missingAltTextResponse, reply: reply}
 		} else {
-			response = mediaResponse{responseType: doNothingResponse}
+			response = mediaResponse{index: i, responseType: doNothingResponse}
 		}
 		responses[i] = response
 	}

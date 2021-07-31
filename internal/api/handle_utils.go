@@ -22,6 +22,7 @@ const (
 )
 
 type mediaResponse struct {
+	index        int
 	responseType mediaResponseType
 	reply        string
 	err          error
@@ -52,15 +53,6 @@ func sendReplies(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 	return err
 }
 
-func addIndexToMessages(messages *[]string) {
-	if len(*messages) > 1 {
-		for i, message := range *messages {
-			// Pesky humans are 1-indexed
-			(*messages)[i] = fmt.Sprintf("Image %d: %s", i+1, message)
-		}
-	}
-}
-
 func removeDoNothings(responses []mediaResponse) []mediaResponse {
 	filtered := make([]mediaResponse, 0, len(responses))
 	for _, response := range responses {
@@ -78,6 +70,12 @@ func extractReplies(responses []mediaResponse, handleErr func(response mediaResp
 			replies[i] = response.reply
 		} else {
 			replies[i] = handleErr(response)
+		}
+
+		if len(responses) > 1 {
+			// Pesky humans are 1-indexed
+			// Make sure to preserve the original media index, as some media could be filtered out
+			replies[i] = fmt.Sprintf("Image %d: %s", response.index+1, replies[i])
 		}
 	}
 	return replies

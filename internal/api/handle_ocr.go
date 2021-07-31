@@ -51,7 +51,6 @@ func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult 
 			err = response.err
 			return "I encountered difficulties scanning the image. Sorry!"
 		})
-		addIndexToMessages(&replies)
 		sendErr := sendReplies(ctx, state.client, tweet, replies)
 		if err == nil {
 			err = sendErr
@@ -99,11 +98,11 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
-			response = mediaResponse{responseType: foundOCRResponse, reply: jobResult.ocr.Text}
+			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: jobResult.ocr.Text}
 		} else if errors.As(jobResult.err, &ErrWrongMediaTypeType) {
-			response = mediaResponse{responseType: doNothingResponse}
+			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			response = mediaResponse{responseType: foundOCRResponse, err: jobResult.err}
+			response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
 		}
 		responses[i] = response
 	}

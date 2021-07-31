@@ -54,7 +54,7 @@ func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult
 				// If there's both OCR and a description, and the OCR text is less than the cutoff
 				// then display both
 				reply := fmt.Sprintf("%s. It contains the text: %s", describeResponse.reply, ocrResponse.reply)
-				mergedResponses[i] = mediaResponse{responseType: mergedOCRVisionResponse, reply: reply}
+				mergedResponses[i] = mediaResponse{index: i, responseType: mergedOCRVisionResponse, reply: reply}
 			} else if ocrResponse.err == nil {
 				mergedResponses[i] = ocrResponse
 			} else {

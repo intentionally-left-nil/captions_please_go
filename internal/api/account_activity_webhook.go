@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
@@ -64,11 +65,14 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 		jobs:   make(chan activityJob, config.MaxOutstandingJobs),
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
-	ctx = WithHelp(ctx, config.Help, client)
+	ctx = WithHelp(ctx, config.Help)
 	ctx = WithAltText(ctx, client)
 	ctx = WithDescribe(ctx, client)
 	ctx = WithAuto(ctx, client)
 	ctx, err = WithOCR(ctx, client)
+	if err == nil {
+		ctx, err = replier.WithReplier(ctx, client)
+	}
 
 	if err == nil {
 		for i := 0; i < int(config.Workers); i++ {

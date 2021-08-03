@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/stretchr/testify/assert"
 )
@@ -67,8 +68,8 @@ func (m *MockTwitter) GetTweetRaw(ctx context.Context, id string) (*http.Respons
 	return resp, err
 }
 
-func (m *MockTwitter) TweetReply(ctx context.Context, id string, message string) (*twitter.Tweet, error) {
+func (m *MockTwitter) TweetReply(ctx context.Context, id string, message string) (*twitter.Tweet, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.TweetReplyMock)
 	tweet, err := m.TweetReplyMock(id, message)
-	return tweet, err
+	return tweet, structured_error.Wrap(err, structured_error.TwitterError)
 }

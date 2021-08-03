@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
 
 type helpJob struct {
 	ctx        context.Context
-	tweetId    string
+	tweet      *twitter.Tweet
 	message    string
 	onComplete context.CancelFunc
 	out        chan<- ActivityResult
@@ -27,7 +28,7 @@ type helpState struct {
 	jobs   chan helpJob
 }
 
-func WithHelp(ctx context.Context, config HelpConfig, client twitter.Twitter) context.Context {
+func WithHelp(ctx context.Context, config HelpConfig) context.Context {
 	validateHelpConfig(&config)
 	state := &helpState{
 		config: config,
@@ -40,11 +41,11 @@ func WithHelp(ctx context.Context, config HelpConfig, client twitter.Twitter) co
 		go func(i int) {
 			logrus.Debug(fmt.Sprintf("Initializing Help worker %d", i))
 			for job := range state.jobs {
-				logrus.Debug(fmt.Sprintf("Worker %d processing tweet %s", i, job.tweetId))
+				logrus.Debug(fmt.Sprintf("Worker %d processing tweet %s", i, job.tweet.Id))
 				result := ActivityResult{action: "Reply with help message"}
-				_, err := replyWithMultipleTweets(job.ctx, client, job.tweetId, job.message)
-				result.err = err
-				logrus.Debug(fmt.Sprintf("Worker %d finished processing tweet %s", i, job.tweetId))
+				replyResult := replier.Reply(job.ctx, job.tweet, replier.Message(job.message))
+				result.err = replyResult.Err
+				logrus.Debug(fmt.Sprintf("Worker %d finished processing tweet %s", i, job.tweet.Id))
 				job.out <- result
 				close(job.out)
 			}
@@ -65,7 +66,7 @@ func HandleHelp(ctx context.Context, tweet *twitter.Tweet, message string) <-cha
 	logrus.Debug(fmt.Sprintf("Help job %s waiting with timeout %d", tweet.Id, state.config.Timeout))
 	out := make(chan ActivityResult)
 	helpCtx, onComplete := context.WithTimeout(ctx, state.config.Timeout)
-	hJob := helpJob{ctx: helpCtx, out: out, onComplete: onComplete, message: message, tweetId: tweet.Id}
+	hJob := helpJob{ctx: helpCtx, out: out, onComplete: onComplete, message: message, tweet: tweet}
 	select {
 	case state.jobs <- hJob:
 		logrus.Debug(fmt.Sprintf("Help job enqueued successfully for tweet %s", tweet.Id))

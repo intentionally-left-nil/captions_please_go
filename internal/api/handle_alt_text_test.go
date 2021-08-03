@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/fortytw2/leaktest"
@@ -103,6 +104,8 @@ func TestHandleAltText(t *testing.T) {
 			}}
 
 			ctx = WithAltText(ctx, mockTwitter)
+			ctx, err := replier.WithReplier(ctx, mockTwitter)
+			assert.NoError(t, err)
 			result := <-HandleAltText(ctx, test.tweet)
 
 			assert.Equal(t, len(test.messages), messageIndex)

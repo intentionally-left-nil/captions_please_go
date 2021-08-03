@@ -1,40 +1,20 @@
-package api
+package replier
 
 import (
-	"context"
-	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/twitter-text-go/validate"
-	"github.com/sirupsen/logrus"
 )
 
 var parseTweet = validate.ParseTweet
 var parseTweetSecondPass = validate.ParseTweet
 
-func replyWithMultipleTweets(ctx context.Context, client twitter.Twitter, tweetId string, message string) (*twitter.Tweet, error) {
-	var tweet *twitter.Tweet
-	messages, err := splitMessage(message)
-	logrus.Debug(fmt.Sprintf("Split up the message into chunks had chunks %v and error %v", messages, err))
-	if err == nil {
-		for i, message := range messages {
-			logrus.Debug(fmt.Sprintf("Sending message chunk %d/%d: %s", i, len(messages), message))
-			tweet, err = client.TweetReply(ctx, tweetId, message)
-			if err != nil {
-				break
-			}
-			tweetId = tweet.Id
-		}
-	}
-	return tweet, err
-}
-
-func splitMessage(message string) ([]string, error) {
+func splitMessage(message string) ([]string, structured_error.StructuredError) {
 	if !utf8.ValidString(message) {
-		return nil, validate.InvalidCharacterError{}
+		return nil, structured_error.Wrap(validate.InvalidCharacterError{}, structured_error.CannotSplitMessage)
 	}
 	_, err := parseTweet(message)
 	if err == nil {
@@ -101,10 +81,11 @@ func splitMessage(message string) ([]string, error) {
 	}
 
 finally:
+
 	if err == nil && start < end {
 		tweets = appendTweet(tweets, message[start:])
 	}
-	return tweets, err
+	return tweets, structured_error.Wrap(err, structured_error.CannotSplitMessage)
 }
 
 func appendTweet(tweets []string, tweet string) []string {

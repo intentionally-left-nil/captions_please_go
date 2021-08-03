@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -142,6 +143,8 @@ func TestHandleDescribe(t *testing.T) {
 			}
 
 			ctx = setDescribeState(ctx, &state)
+			ctx, err := replier.WithReplier(ctx, &mockTwitter)
+			assert.NoError(t, err)
 			result := <-HandleDescribe(ctx, test.tweet)
 			if test.hasErr {
 				assert.Error(t, result.err)

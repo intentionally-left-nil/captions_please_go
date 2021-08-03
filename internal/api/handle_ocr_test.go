@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -96,6 +97,8 @@ func TestHandleOCR(t *testing.T) {
 				google: &mockGoogle,
 			}
 			ctx = setOCRState(ctx, &state)
+			ctx, err := replier.WithReplier(ctx, &mockTwitter)
+			assert.NoError(t, err)
 			result := <-HandleOCR(ctx, test.tweet)
 
 			if test.hasErr {

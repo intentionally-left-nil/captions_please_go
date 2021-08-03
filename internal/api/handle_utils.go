@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
@@ -45,12 +46,12 @@ func sendReplyForBadMedia(ctx context.Context, client twitter.Twitter, tweet *tw
 
 func sendReplies(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, replies []string) error {
 	reply := strings.Join(replies, "\n")
-	_, err := replyWithMultipleTweets(ctx, client, tweet.Id, reply)
+	result := replier.Reply(ctx, tweet, replier.Message(reply))
 
-	if err != nil {
-		logrus.Info(fmt.Sprintf("Failed to send response %s to tweet %s with error %v", reply, tweet.Id, err))
+	if result.Err != nil {
+		logrus.Info(fmt.Sprintf("Failed to send response %s to tweet %s with error %v", reply, tweet.Id, result.Err))
 	}
-	return err
+	return result.Err
 }
 
 func removeDoNothings(responses []mediaResponse) []mediaResponse {

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/mrjones/oauth"
 	"github.com/sirupsen/logrus"
 )
@@ -96,7 +97,7 @@ type Twitter interface {
 	AddSubscription(ctx context.Context) error
 	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, error)
 	GetTweet(ctx context.Context, tweetID string) (*Tweet, error)
-	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, error)
+	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError)
 }
 
 type Webhook struct {
@@ -255,7 +256,7 @@ func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Respon
 	return response, err
 }
 
-func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, error) {
+func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError) {
 	tweet := Tweet{}
 	values := url.Values{
 		"status":                       []string{message},
@@ -269,7 +270,7 @@ func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string
 	if err == nil {
 		err = GetJSON(response, &tweet)
 	}
-	return &tweet, err
+	return &tweet, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
 func (t *twitter) get(ctx context.Context, endpoint string, url string) (*http.Response, error) {

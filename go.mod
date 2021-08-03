@@ -15,6 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
+	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/api v0.51.0
 	google.golang.org/genproto v0.0.0-20210722135532-667f2b7c528f
 )

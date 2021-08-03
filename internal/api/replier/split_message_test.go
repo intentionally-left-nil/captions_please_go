@@ -1,77 +1,14 @@
-package api
+package replier
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
-	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/twitter-text-go/validate"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestReplyWithMultipleTweets(t *testing.T) {
-	oneHundred := strings.Repeat("a", 100)
-	twoHundred := strings.Repeat("b", 200)
-	tests := []struct {
-		name        string
-		message     string
-		replyErr    error
-		shouldError bool
-		expected    []string
-	}{
-		{
-			name:     "Replies with a message that fits in one tweet",
-			message:  "hello",
-			expected: []string{"hello"},
-		},
-		{
-			name:     "Replies with two tweets for a long message",
-			message:  twoHundred + " " + oneHundred,
-			expected: []string{twoHundred, oneHundred},
-		},
-		{
-			name:        "Errors if parsing the message fails",
-			message:     "\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98",
-			shouldError: true,
-		},
-		{
-			name:        "Errors if sending the tweet fails",
-			message:     "hello",
-			replyErr:    errors.New("no sending tweets allowed"),
-			expected:    []string{"hello"},
-			shouldError: true,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tweetId := 0
-			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentId string, message string) (*twitter.Tweet, error) {
-				parentAsInt, err := strconv.Atoi(parentId)
-				assert.NoError(t, err)
-				assert.Equal(t, tweetId, parentAsInt)
-				assert.Equal(t, test.expected[tweetId], message)
-
-				tweetId++
-				tweet := twitter.Tweet{Id: fmt.Sprintf("%d", tweetId)}
-				return &tweet, test.replyErr
-			}}
-
-			tweet, err := replyWithMultipleTweets(context.Background(), mockTwitter, "0", test.message)
-			assert.Equal(t, len(test.expected), tweetId)
-			if test.shouldError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, fmt.Sprintf("%d", tweetId), tweet.Id)
-			}
-		})
-	}
-}
 
 func TestSplitMessage(t *testing.T) {
 	fiveCharacterValidate := func(s string) (validate.Tweet, error) {
@@ -200,7 +137,7 @@ func TestSplitMessage(t *testing.T) {
 			parseTweet = test.parseTweet
 			parseTweetSecondPass = test.parseTweetSecondPass
 			tweets, err := splitMessage(test.message)
-			assert.Equal(t, test.err, err)
+			assert.Equal(t, structured_error.Wrap(test.err, structured_error.CannotSplitMessage), err)
 			if test.err == nil {
 				assert.Equal(t, test.tweets, tweets)
 			}

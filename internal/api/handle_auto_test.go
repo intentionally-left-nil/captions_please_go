@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -140,6 +141,8 @@ func TestHandleAuto(t *testing.T) {
 			ctx = setAutoState(ctx, &autoState)
 			ctx = WithAltText(ctx, &mockTwitter)
 			ctx = setDescribeState(ctx, &describeState)
+			ctx, err := replier.WithReplier(ctx, &mockTwitter)
+			assert.NoError(t, err)
 
 			result := <-HandleAuto(ctx, test.tweet)
 			if test.hasErr {

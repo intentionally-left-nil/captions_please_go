@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/fortytw2/leaktest"
@@ -19,8 +20,7 @@ func TestWithHelp(t *testing.T) {
 	defer leaktest.Check(t)()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	mockTwitter := &twitter_test.MockTwitter{}
-	ctx = WithHelp(ctx, HelpConfig{}, mockTwitter)
+	ctx = WithHelp(ctx, HelpConfig{})
 	state := getHelpState(ctx)
 	assert.NotNil(t, state)
 }
@@ -75,7 +75,9 @@ func TestHandleHelp(t *testing.T) {
 			}
 			mockTwitter := &twitter_test.MockTwitter{TweetReplyMock: tweetReplyMock}
 			config := HelpConfig{Workers: 1, Timeout: time.Millisecond * 50, PendingHelpMessages: 0}
-			ctx = WithHelp(ctx, config, mockTwitter)
+			ctx, err := replier.WithReplier(ctx, mockTwitter)
+			assert.NoError(t, err)
+			ctx = WithHelp(ctx, config)
 
 			outs := make([]<-chan ActivityResult, len(test.messages))
 			wg := sync.WaitGroup{}

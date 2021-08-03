@@ -147,9 +147,9 @@ func TestHandleDescribe(t *testing.T) {
 			assert.NoError(t, err)
 			result := <-HandleDescribe(ctx, test.tweet)
 			if test.hasErr {
-				assert.Error(t, result.err)
+				assert.Error(t, result.Err)
 			} else {
-				assert.NoError(t, result.err)
+				assert.NoError(t, result.Err)
 			}
 			assert.Equal(t, test.messages, sentMessages)
 		})

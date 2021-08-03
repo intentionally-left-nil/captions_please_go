@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 )
@@ -45,7 +46,7 @@ func getDescriberState(ctx context.Context) *describeState {
 	return ctx.Value(theDescribeKey).(*describeState)
 }
 
-func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult {
+func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getDescriberState(ctx)
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
@@ -67,8 +68,8 @@ func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityRe
 	} else {
 		sendReplyForBadMedia(ctx, state.client, tweet, err)
 	}
-	out := make(chan ActivityResult, 1)
-	out <- ActivityResult{tweet: tweet, err: err, action: "reply with description"}
+	out := make(chan common.ActivityResult, 1)
+	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with description"}
 	close(out)
 	return out
 }

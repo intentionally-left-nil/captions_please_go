@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
@@ -22,7 +23,7 @@ func WithAltText(ctx context.Context, client twitter.Twitter) context.Context {
 	return context.WithValue(ctx, theAltTextKey, state)
 }
 
-func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult {
+func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getAltTextState(ctx)
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
@@ -33,8 +34,8 @@ func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityRes
 	} else {
 		sendReplyForBadMedia(ctx, state.client, tweet, err)
 	}
-	out := make(chan ActivityResult, 1)
-	out <- ActivityResult{tweet: tweet, err: err, action: "reply with alt text"}
+	out := make(chan common.ActivityResult, 1)
+	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with alt text"}
 	close(out)
 	return out
 }

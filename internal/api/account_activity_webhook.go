@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
@@ -22,29 +23,16 @@ type activityData struct {
 	BotId           string          `json:"for_user_id"`
 }
 
-type HelpConfig struct {
-	Workers             uint
-	PendingHelpMessages uint
-	Timeout             time.Duration
-}
-
 type ActivityConfig struct {
 	Workers            uint
 	MaxOutstandingJobs uint
 	WebhookTimeout     time.Duration
-	Help               HelpConfig
-}
-
-type ActivityResult struct {
-	tweet  *twitter.Tweet
-	action string
-	err    error
 }
 
 type activityJob struct {
 	botId string
 	tweet *twitter.Tweet
-	out   chan<- ActivityResult
+	out   chan<- common.ActivityResult
 }
 
 type activityState struct {
@@ -65,7 +53,6 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 		jobs:   make(chan activityJob, config.MaxOutstandingJobs),
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
-	ctx = WithHelp(ctx, config.Help)
 	ctx = WithAltText(ctx, client)
 	ctx = WithDescribe(ctx, client)
 	ctx = WithAuto(ctx, client)
@@ -96,39 +83,39 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	return ctx, err
 }
 
-func singleActivityResult(result ActivityResult) <-chan ActivityResult {
-	logrus.Debug(fmt.Sprintf("Sending single action %s and err %v", result.action, result.err))
+func singleActivityResult(result common.ActivityResult) <-chan common.ActivityResult {
+	logrus.Debug(fmt.Sprintf("Sending single action %s and err %v", result.Action, result.Err))
 	// It's important to buffer this channel because we haven't returned the out channel to the caller
 	// and therefore nobody is listening yet. Otherwise this will deadlock
-	out := make(chan ActivityResult, 1)
+	out := make(chan common.ActivityResult, 1)
 	out <- result
-	logrus.Debug(fmt.Sprintf("Sent single action %s and err %v", result.action, result.err))
+	logrus.Debug(fmt.Sprintf("Sent single action %s and err %v", result.Action, result.Err))
 	close(out)
 	return out
 }
 
-func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse, <-chan ActivityResult) {
+func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse, <-chan common.ActivityResult) {
 	data := activityData{}
 	err := twitter.GetJSON(&http.Response{Body: req.Body, StatusCode: http.StatusOK}, &data)
 	logDebugJSON(data)
 	if err != nil {
-		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(ActivityResult{action: "parsing json", err: err})
+		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: err})
 	}
 
 	if data.BotId == "" {
-		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(ActivityResult{action: "parsing json", err: errors.New("missing for_user_id")})
+		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: errors.New("missing for_user_id")})
 	}
 
 	if data.FromBlockedUser {
-		return APIResponse{status: http.StatusOK}, singleActivityResult(ActivityResult{action: "ignoring blocked user"})
+		return APIResponse{status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "ignoring blocked user"})
 	}
 
 	if len(data.CreateData) == 0 {
-		return APIResponse{status: http.StatusOK}, singleActivityResult(ActivityResult{action: "no creation events"})
+		return APIResponse{status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "no creation events"})
 	}
 
 	// 1. Create a multiplexer to store the results for parsing each tweet
-	combinedOut := make(chan ActivityResult)
+	combinedOut := make(chan common.ActivityResult)
 
 	// 2. Create a wait group so we know when all the tweets have been processed & we can close the combinedOut multiplexer
 	wg := sync.WaitGroup{}
@@ -140,7 +127,7 @@ func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse
 		// Once queued, this delegates ownership responsibility to the thread pool - it is responsible for filling the channel
 		// AND closing it.
 		// If we can't queue it due to backpressure, then we need to propagate the timeout upwards
-		out := make(chan ActivityResult)
+		out := make(chan common.ActivityResult)
 		tweet := tweet
 		job := activityJob{botId: data.BotId, tweet: &tweet, out: out}
 		go func() {
@@ -150,7 +137,7 @@ func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse
 
 			case <-time.After(state.config.WebhookTimeout):
 				logrus.Info(fmt.Sprintf("Job queue is backed up, dropping tweet %s", tweet.Id))
-				result := ActivityResult{action: "enqueue activity job", err: errors.New("timeout")}
+				result := common.ActivityResult{Action: "enqueue activity job", Err: errors.New("timeout")}
 				out <- result
 				close(out)
 			}
@@ -180,11 +167,11 @@ func getActivityState(ctx context.Context) *activityState {
 	return ctx.Value(theActivityStateKey).(*activityState)
 }
 
-func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan ActivityResult {
+func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan common.ActivityResult {
 	botMention := getVisibleMention(job.botId, job.tweet)
 	if botMention == nil || job.tweet.User.Id == job.botId {
-		result := ActivityResult{action: "User didnt mention us. Ignoring"}
-		out := make(chan ActivityResult)
+		result := common.ActivityResult{Action: "User didnt mention us. Ignoring"}
+		out := make(chan common.ActivityResult)
 		go func() {
 			out <- result
 			close(out)

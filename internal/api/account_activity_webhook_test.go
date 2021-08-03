@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	vision_test "github.com/AnilRedshift/captions_please_go/pkg/vision/test"
@@ -32,7 +33,7 @@ func TestWithAccountActivity(t *testing.T) {
 func TestAccountActivityWebhook(t *testing.T) {
 	// Turn on for debug logging
 	// logrus.SetLevel(logrus.DebugLevel)
-	helpTweet := "{\"id_str\":\"helpTweet\", \"text\": \"@captions_please help\", \"entities\":{\"user_mentions\":[{\"id_str\":\"123\", \"screen_name\":\"captions_please\", \"name\":\"myName\", \"indices\":[0,16]}]}}"
+	// helpTweet := "{\"id_str\":\"helpTweet\", \"text\": \"@captions_please help\", \"entities\":{\"user_mentions\":[{\"id_str\":\"123\", \"screen_name\":\"captions_please\", \"name\":\"myName\", \"indices\":[0,16]}]}}"
 	tests := []struct {
 		name               string
 		message            string
@@ -74,14 +75,15 @@ func TestAccountActivityWebhook(t *testing.T) {
 			apiResponse:     APIResponse{status: http.StatusOK},
 			expectedActions: []string{"no creation events"},
 		},
-		{
-			name:            "times out if the webhooks are backed up",
-			message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[" + helpTweet + "," + helpTweet + "]}",
-			apiResponse:     APIResponse{status: http.StatusOK},
-			timesToDelay:    1,
-			numErrors:       1,
-			expectedActions: []string{"enqueue activity job", "Reply with help message"},
-		},
+		// TODO replace with a new test
+		// {
+		// 	name:            "times out if the webhooks are backed up",
+		// 	message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[" + helpTweet + "," + helpTweet + "]}",
+		// 	apiResponse:     APIResponse{status: http.StatusOK},
+		// 	timesToDelay:    1,
+		// 	numErrors:       1,
+		// 	expectedActions: []string{"enqueue activity job", "Reply with help message"},
+		// },
 	}
 
 	for _, test := range tests {
@@ -111,14 +113,14 @@ func TestAccountActivityWebhook(t *testing.T) {
 			request := &http.Request{Body: reader}
 			resp, out := AccountActivityWebhook(ctx, request)
 			assert.Equal(t, test.apiResponse, resp)
-			results := []ActivityResult{}
+			results := []common.ActivityResult{}
 			for result := range out {
 				results = append(results, result)
 			}
 			assert.Equal(t, len(test.expectedActions), len(results))
 			actions := []string{}
 			for _, result := range results {
-				actions = append(actions, result.action)
+				actions = append(actions, result.Action)
 			}
 			for _, expectedAction := range test.expectedActions {
 				found := false
@@ -135,7 +137,7 @@ func TestAccountActivityWebhook(t *testing.T) {
 			}
 			foundErrors := 0
 			for _, result := range results {
-				if result.err != nil {
+				if result.Err != nil {
 					foundErrors++
 				}
 			}

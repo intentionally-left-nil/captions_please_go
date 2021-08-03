@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 )
@@ -40,7 +41,7 @@ func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, erro
 	return setOCRState(ctx, state), err
 }
 
-func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult {
+func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getOCRState(ctx)
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
@@ -58,8 +59,8 @@ func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult 
 	} else {
 		sendReplyForBadMedia(ctx, state.client, tweet, err)
 	}
-	out := make(chan ActivityResult, 1)
-	out <- ActivityResult{tweet: tweet, err: err, action: "reply with OCR"}
+	out := make(chan common.ActivityResult, 1)
+	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with OCR"}
 	close(out)
 	return out
 }

@@ -110,10 +110,10 @@ func TestHandleAltText(t *testing.T) {
 
 			assert.Equal(t, len(test.messages), messageIndex)
 			if test.hasErr {
-				assert.Error(t, result.err)
+				assert.Error(t, result.Err)
 			} else {
-				assert.NoError(t, result.err)
-				assert.Equal(t, result.action, "reply with alt text")
+				assert.NoError(t, result.Err)
+				assert.Equal(t, result.Action, "reply with alt text")
 			}
 		})
 	}

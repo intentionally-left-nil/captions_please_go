@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api"
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
@@ -31,11 +32,6 @@ func main() {
 		Workers:            10,
 		MaxOutstandingJobs: 9001,
 		WebhookTimeout:     time.Second * 30,
-		Help: api.HelpConfig{
-			Workers:             2,
-			PendingHelpMessages: 10,
-			Timeout:             time.Second * 30,
-		},
 	}
 
 	ctx, err = api.WithAccountActivity(ctx, config, client)
@@ -49,7 +45,7 @@ func main() {
 		case http.MethodGet:
 			response = api.EncodeCRCToken(ctx, req)
 		case http.MethodPost:
-			var out <-chan api.ActivityResult
+			var out <-chan common.ActivityResult
 			response, out = api.AccountActivityWebhook(ctx, req)
 			go func() {
 				for range out {

@@ -4,12 +4,14 @@ import (
 	"context"
 	"strings"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/handle_command"
 	"github.com/urfave/cli/v2"
 )
 
-func handleCommand(ctx context.Context, command string, job activityJob) <-chan ActivityResult {
+func handleCommand(ctx context.Context, command string, job activityJob) <-chan common.ActivityResult {
 	builder := &strings.Builder{}
-	var out <-chan ActivityResult
+	var out <-chan common.ActivityResult
 	helpTemplate := `Commands:
 {{range .VisibleCommands}}{{join .Names ", "}}{{":\t"}}{{.Usage}}{{"\n"}}{{end}}`
 	app := &cli.App{
@@ -22,7 +24,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 					err := cli.ShowAppHelp(c)
 					if err == nil {
 						reply := builder.String()
-						out = HandleHelp(ctx, job.tweet, reply)
+						out = handle_command.Help(ctx, job.tweet, reply)
 					}
 					return err
 				},
@@ -65,8 +67,8 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 	}
 	err := app.Run(strings.Split("captions_please "+command, " "))
 	if err != nil {
-		out := make(chan ActivityResult, 1)
-		result := ActivityResult{tweet: job.tweet, err: err, action: "handle command"}
+		out := make(chan common.ActivityResult, 1)
+		result := common.ActivityResult{Tweet: job.tweet, Err: err, Action: "handle command"}
 		out <- result
 		close(out)
 	}

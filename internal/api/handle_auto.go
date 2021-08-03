@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
@@ -30,7 +31,7 @@ func getAutoState(ctx context.Context) *autoState {
 	return ctx.Value(theAutoKey).(*autoState)
 }
 
-func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult {
+func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getAutoState(ctx)
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
@@ -77,8 +78,8 @@ func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan ActivityResult
 	} else {
 		sendReplyForBadMedia(ctx, state.client, tweet, err)
 	}
-	out := make(chan ActivityResult, 1)
-	out <- ActivityResult{tweet: tweet, err: err, action: "reply with auto response"}
+	out := make(chan common.ActivityResult, 1)
+	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with auto response"}
 	close(out)
 	return out
 }

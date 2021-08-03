@@ -2,46 +2,23 @@ package handle_command
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
 const MAX_DEPTH = 2
 
-type ErrWrongMediaType struct {
-	err error
-}
-
-func (e *ErrWrongMediaType) Error() string {
-	return e.err.Error()
-}
-
-func (e *ErrWrongMediaType) Unwrap() error {
-	return e.err
-}
-
-type ErrNoPhotosFound struct {
-	err error
-}
-
-func (e *ErrNoPhotosFound) Error() string {
-	return e.err.Error()
-}
-
-func (e *ErrNoPhotosFound) Unwrap() error {
-	return e.err
-}
-
-func findTweetWithMedia(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, error) {
+func findTweetWithMedia(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, structured_error.StructuredError) {
 	return findTweetWithMediaHelper(ctx, client, tweet, false, MAX_DEPTH)
 }
 
-func findTweetWithMediaHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, didRefresh bool, depth int) (*twitter.Tweet, error) {
+func findTweetWithMediaHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, didRefresh bool, depth int) (*twitter.Tweet, structured_error.StructuredError) {
 	var foundTweet *twitter.Tweet
-	var err error
+	var err structured_error.StructuredError
 	if depth < 0 {
-		err = &ErrNoPhotosFound{fmt.Errorf("no photo to search for %s", tweet.Id)}
+		err = structured_error.Wrap(errors.New("MAX_DEPTH reached"), structured_error.NoPhotosFound)
 	}
 
 	if err == nil {
@@ -61,7 +38,7 @@ func findTweetWithMediaHelper(ctx context.Context, client twitter.Twitter, tweet
 			if len(photos) > 0 {
 				foundTweet = tweet
 			} else if len(tweet.Media) > 0 {
-				err = &ErrWrongMediaType{fmt.Errorf("tweet %s contains media %v but no photos", tweet.Id, tweet.Media)}
+				err = structured_error.Wrap(errors.New("tweet contains media but no photos"), structured_error.WrongMediaType)
 			} else {
 				var parentTweet *twitter.Tweet
 				parentTweet, err = getParentTweet(ctx, client, tweet)
@@ -92,15 +69,15 @@ func getPhotos(media []twitter.Media) []twitter.Media {
 	return photos
 }
 
-func getParentTweet(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, error) {
+func getParentTweet(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, structured_error.StructuredError) {
 	var parentTweet *twitter.Tweet
-	var err error
+	var err structured_error.StructuredError
 	if tweet.Type == twitter.QuoteTweet && tweet.QuoteTweet != nil {
 		parentTweet = tweet.QuoteTweet
 	} else if tweet.ParentTweetId != "" {
 		parentTweet, err = client.GetTweet(ctx, tweet.ParentTweetId)
 	} else {
-		err = &ErrNoPhotosFound{fmt.Errorf("no parent photo to search for %s", tweet.Id)}
+		err = structured_error.Wrap(errors.New("no parent tweet"), structured_error.NoPhotosFound)
 	}
 	return parentTweet, err
 }

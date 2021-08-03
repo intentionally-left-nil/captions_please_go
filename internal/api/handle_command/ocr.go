@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 )
@@ -43,6 +44,7 @@ func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, erro
 
 func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getOCRState(ctx)
+	var err error
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
 		responses := getOCRMediaResponse(ctx, tweet, mediaTweet)
@@ -79,7 +81,7 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 				ocrResult, err := state.google.GetOCR(media.Url)
 				jobs <- ocrJobResult{index: i, ocr: ocrResult, err: err}
 			} else {
-				jobs <- ocrJobResult{index: i, err: &ErrWrongMediaType{}}
+				jobs <- ocrJobResult{index: i, err: structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)}
 			}
 			wg.Done()
 		}()
@@ -94,16 +96,19 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 	sort.Slice(jobResults, func(i, j int) bool { return jobResults[i].index < jobResults[j].index })
 	responses := make([]mediaResponse, len(mediaTweet.Media))
 
-	var ErrWrongMediaTypeType *ErrWrongMediaType
 	for i := range mediaTweet.Media {
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
 			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: jobResult.ocr.Text}
-		} else if errors.As(jobResult.err, &ErrWrongMediaTypeType) {
-			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
+			// TODO remove wrapping once this is converted to a structured error
+			sErr := structured_error.Wrap(jobResult.err, structured_error.Unknown)
+			if sErr.Type() == structured_error.WrongMediaType {
+				response = mediaResponse{index: i, responseType: doNothingResponse}
+			} else {
+				response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
+			}
 		}
 		responses[i] = response
 	}

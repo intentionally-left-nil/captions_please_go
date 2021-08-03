@@ -3,10 +3,12 @@ package handle_command
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 )
@@ -48,6 +50,7 @@ func getDescriberState(ctx context.Context) *describeState {
 
 func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getDescriberState(ctx)
+	var err error
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
 		responses := getDescribeMediaResponse(ctx, tweet, mediaTweet)
@@ -88,7 +91,7 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 				visionResult, err := state.describer.Describe(media.Url)
 				jobs <- visionJobResult{index: i, results: visionResult, err: err}
 			} else {
-				jobs <- visionJobResult{index: i, err: &ErrWrongMediaType{}}
+				jobs <- visionJobResult{index: i, err: structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)}
 			}
 			wg.Done()
 		}()
@@ -102,25 +105,30 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 	}
 	sort.Slice(jobResults, func(i, j int) bool { return jobResults[i].index < jobResults[j].index })
 	responses := make([]mediaResponse, len(mediaTweet.Media))
-	var ErrWrongMediaTypeType *ErrWrongMediaType
 	for i := range mediaTweet.Media {
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
 			reply, err := formatVisionReply(jobResult.results)
 			response = mediaResponse{index: i, responseType: foundVisionResponse, reply: reply, err: err}
-		} else if errors.As(jobResult.err, &ErrWrongMediaTypeType) {
-			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
+			// TODO remove wrapping once this is converted to a structured error
+			sErr := structured_error.Wrap(jobResult.err, structured_error.Unknown)
+			if sErr.Type() == structured_error.WrongMediaType {
+				response = mediaResponse{index: i, responseType: doNothingResponse}
+			} else {
+				response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
+
+			}
 		}
+
 		responses[i] = response
 	}
 	return responses
 }
 
-func formatVisionReply(visionResults []vision.VisionResult) (string, error) {
-	var err error = nil
+func formatVisionReply(visionResults []vision.VisionResult) (string, structured_error.StructuredError) {
+	var err structured_error.StructuredError = nil
 	filteredResults := make([]vision.VisionResult, 0, len(visionResults))
 	for i, visionResult := range visionResults {
 		if i > 2 || visionResult.Confidence < lowVisionConfidenceCutoff {
@@ -132,7 +140,7 @@ func formatVisionReply(visionResults []vision.VisionResult) (string, error) {
 	reply := ""
 	if len(filteredResults) == 0 {
 		reply = "I'm at a loss for words, sorry!"
-		err = &ErrNoPhotosFound{}
+		err = structured_error.Wrap(fmt.Errorf("there were %d results, but none were high-confidence", len(visionResults)), structured_error.NoHighConfidenceResults)
 	} else {
 		reply = filteredResults[0].Text
 		for _, result := range filteredResults[1:] {

@@ -33,6 +33,7 @@ func getAutoState(ctx context.Context) *autoState {
 
 func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
 	state := getAutoState(ctx)
+	var err error
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {
 		altTextResponses := getAltTextMediaResponse(ctx, tweet, mediaTweet)

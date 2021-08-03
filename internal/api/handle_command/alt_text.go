@@ -24,6 +24,7 @@ func WithAltText(ctx context.Context, client twitter.Twitter) context.Context {
 }
 
 func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
+	var err error
 	state := getAltTextState(ctx)
 	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
 	if err == nil {

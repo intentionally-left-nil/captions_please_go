@@ -208,7 +208,7 @@ func TestValidateResponse(t *testing.T) {
 			name:       "Parses a duplicate error",
 			json:       "{\"errors\":[{\"code\":187,\"message\":\"Status is a duplicate.\"}]}",
 			statusCode: 400,
-			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweetError),
+			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweet),
 		},
 		{
 			name:       "Parses a rate limit error",
@@ -226,7 +226,7 @@ func TestValidateResponse(t *testing.T) {
 			name:       "Prefers the last error it finds",
 			json:       "{\"errors\":[{\"code\":88,\"message\":\"staaaahp\"},{\"code\":187,\"message\":\"Status is a duplicate.\"}]}",
 			statusCode: 429,
-			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweetError),
+			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweet),
 		},
 	}
 	for _, test := range tests {

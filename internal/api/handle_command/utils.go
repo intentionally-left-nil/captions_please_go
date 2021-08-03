@@ -2,11 +2,11 @@ package handle_command
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
@@ -30,14 +30,15 @@ type mediaResponse struct {
 }
 
 func sendReplyForBadMedia(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, err error) {
-	var ErrNoPhotosFoundType *ErrNoPhotosFound
-	var ErrWrongMediaTypeType *ErrWrongMediaType
 	reply := ""
-	if errors.As(err, &ErrNoPhotosFoundType) {
+	// TODO remove once everything is structured
+	sErr := structured_error.Wrap(err, structured_error.Unknown)
+	switch sErr.Type() {
+	case structured_error.NoPhotosFound:
 		reply = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
-	} else if errors.As(err, &ErrWrongMediaTypeType) {
+	case structured_error.WrongMediaType:
 		reply = "I only know how to interpret photos right now, sorry!"
-	} else {
+	default:
 		reply = "My joints are freezing up! Hey @TheOtherAnil can you please fix me?"
 	}
 	sendReplies(ctx, client, tweet, []string{reply})

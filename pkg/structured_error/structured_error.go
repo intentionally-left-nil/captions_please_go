@@ -6,7 +6,11 @@ const (
 	CannotSplitMessage ErrorType = iota
 	RateLimited
 	TwitterError
-	DuplicateTweetError
+	DuplicateTweet
+	WrongMediaType
+	NoPhotosFound
+	NoHighConfidenceResults
+	Unknown
 )
 
 type StructuredError interface {

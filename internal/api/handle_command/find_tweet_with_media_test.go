@@ -2,14 +2,17 @@ package handle_command
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFindTweetWithMedia(t *testing.T) {
+	anError := errors.New("mainstream media, what a silly term")
 	mixedMedia := []twitter.Media{{Type: "photo"}, {Type: "video"}}
 	onePhoto := []twitter.Media{{Type: "photo"}}
 	oneVideo := []twitter.Media{{Type: "video"}}
@@ -31,9 +34,8 @@ func TestFindTweetWithMedia(t *testing.T) {
 		parents         []*twitter.Tweet
 		refreshedTweets map[string]*twitter.Tweet
 		expected        *twitter.Tweet
-		hasError        bool
+		err             structured_error.StructuredError
 		getTweetErr     error
-		errType         interface{}
 	}{
 		{
 			name:     "Returns the current tweet if it contains photos",
@@ -65,32 +67,32 @@ func TestFindTweetWithMedia(t *testing.T) {
 			expected: &tweetWithMedia,
 		},
 		{
-			name:     "Errors if the media is too high (great-grandparent)",
-			tweet:    &tweetWithoutMedia,
-			parents:  []*twitter.Tweet{&tweetWithoutMedia, &tweetWithoutMedia, &tweetWithMedia},
-			hasError: true,
+			name:    "Errors if the media is too high (great-grandparent)",
+			tweet:   &tweetWithoutMedia,
+			parents: []*twitter.Tweet{&tweetWithoutMedia, &tweetWithoutMedia, &tweetWithMedia},
+			err:     structured_error.Wrap(anError, structured_error.NoPhotosFound),
 		},
 		{
-			name:     "Errors out if its a tweet without a parent",
-			tweet:    &tweetWithoutMedia,
-			hasError: true,
+			name:  "Errors out if its a tweet without a parent",
+			tweet: &tweetWithoutMedia,
+			err:   structured_error.Wrap(anError, structured_error.NoPhotosFound),
 		},
 		{
-			name:     "Errors out if its a tweet with videos but not photos",
-			tweet:    &tweetWithVideo,
-			hasError: true,
+			name:  "Errors out if its a tweet with videos but not photos",
+			tweet: &tweetWithVideo,
+			err:   structured_error.Wrap(anError, structured_error.WrongMediaType),
 		},
 		{
-			name:     "Errors for a tweet with an animated_gif and a fallback photo",
-			tweet:    &tweetWithGif,
-			hasError: true,
+			name:  "Errors for a tweet with an animated_gif and a fallback photo",
+			tweet: &tweetWithGif,
+			err:   structured_error.Wrap(anError, structured_error.WrongMediaType),
 		},
 		{
 			name:  "Ignores the quote tweet's parent for the image",
 			tweet: &quoteTweetWithGrandparentImage,
 			// the quote tweet doesn't need to make a request
-			parents:  []*twitter.Tweet{&tweetWithMedia},
-			hasError: true,
+			parents: []*twitter.Tweet{&tweetWithMedia},
+			err:     structured_error.Wrap(anError, structured_error.NoPhotosFound),
 		},
 	}
 	for _, test := range tests {
@@ -119,11 +121,12 @@ func TestFindTweetWithMedia(t *testing.T) {
 				test.tweet.ParentTweetId = test.parents[0].Id
 			}
 			tweet, err := findTweetWithMedia(ctx, mockTwitter, test.tweet)
-			if test.hasError {
-				assert.Error(t, err)
-			} else {
+			if test.err == nil {
 				assert.NoError(t, err)
 				assert.Equal(t, test.expected, tweet)
+			} else {
+				assert.Error(t, err)
+				assert.Equal(t, test.err.Type(), err.Type())
 			}
 		})
 	}

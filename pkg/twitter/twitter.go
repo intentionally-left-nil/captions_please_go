@@ -324,7 +324,7 @@ func validateResponse(statusCode int, body []byte) structured_error.StructuredEr
 				case 88:
 					errorType = structured_error.RateLimited
 				case 187:
-					errorType = structured_error.DuplicateTweetError
+					errorType = structured_error.DuplicateTweet
 				}
 			}
 			underlyingErr := fmt.Errorf("Twitter error (%d): %s", statusCode, string(body))

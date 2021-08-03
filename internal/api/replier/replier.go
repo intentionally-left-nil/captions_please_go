@@ -29,7 +29,7 @@ func WithReplier(ctx context.Context, client twitter.Twitter) (context.Context, 
 	return ctx, err
 }
 
-func Reply(ctx context.Context, tweet *twitter.Tweet, message Message) ReplyResult {
+func Reply(ctx context.Context, tweet *twitter.Tweet, message localized) ReplyResult {
 	remaining, err := splitMessage(string(message))
 	if err != nil {
 		return ReplyResult{Err: err, ParentTweet: tweet}

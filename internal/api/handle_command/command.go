@@ -20,12 +20,8 @@ func Command(ctx context.Context, command string, job common.ActivityJob) <-chan
 				Name:  "help",
 				Usage: "Get info about the actions I can take",
 				Action: func(c *cli.Context) error {
-					err := cli.ShowAppHelp(c)
-					if err == nil {
-						reply := builder.String()
-						out = Help(ctx, job.Tweet, reply)
-					}
-					return err
+					out = Help(ctx, job.Tweet)
+					return nil
 				},
 			},
 			{

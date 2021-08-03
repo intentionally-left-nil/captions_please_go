@@ -107,7 +107,7 @@ func TestReply(t *testing.T) {
 			ctx, err := WithReplier(ctx, mockTwitter)
 			assert.NoError(t, err)
 			tweet := &twitter.Tweet{Id: "0"}
-			result := Reply(ctx, tweet, Message(test.message))
+			result := Reply(ctx, tweet, Unlocalized(test.message))
 			if test.result.Err == nil {
 				assert.NoError(t, result.Err)
 			} else {

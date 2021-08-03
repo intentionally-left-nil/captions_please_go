@@ -47,7 +47,7 @@ func sendReplyForBadMedia(ctx context.Context, client twitter.Twitter, tweet *tw
 
 func sendReplies(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, replies []string) error {
 	reply := strings.Join(replies, "\n")
-	result := replier.Reply(ctx, tweet, replier.Message(reply))
+	result := replier.Reply(ctx, tweet, replier.Unlocalized(reply))
 
 	if result.Err != nil {
 		logrus.Info(fmt.Sprintf("Failed to send response %s to tweet %s with error %v", reply, tweet.Id, result.Err))

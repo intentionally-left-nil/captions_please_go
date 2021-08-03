@@ -16,22 +16,23 @@ import (
 )
 
 func TestHandleHelp(t *testing.T) {
+	helpMessages := []string{
+		"Tag @captions_please in a tweet to interpret the images.\nYou can customize the response by adding one of the following commands after tagging me:\nalt_text:\tSee what description the user gave when creating the tweet\nocr:\tScan the image for text\ndescribe:\tUse AI to create a",
+		"description of the image",
+	}
 	tests := []struct {
 		name       string
-		message    string
-		expected   []string
 		twitterErr error
+		expected   []string
 	}{
 		{
 			name:     "Replies with a help message",
-			message:  "hello world",
-			expected: []string{"hello world"},
+			expected: helpMessages,
 		},
 		{
 			name:       "Silently ignores reply failures",
-			message:    "hello world",
 			twitterErr: errors.New("failwhale"),
-			expected:   []string{"hello world"},
+			expected:   helpMessages[:1],
 		},
 	}
 
@@ -57,7 +58,7 @@ func TestHandleHelp(t *testing.T) {
 			assert.NoError(t, err)
 
 			tweet := &twitter.Tweet{Id: "0"}
-			result := <-Help(ctx, tweet, test.message)
+			result := <-Help(ctx, tweet)
 			assert.Equal(t, common.ActivityResult{Tweet: tweet, Action: "reply with help"}, result)
 			assert.Equal(t, len(test.expected), tweetId)
 		})

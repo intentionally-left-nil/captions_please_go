@@ -16,18 +16,18 @@ func TestLoadMessages(t *testing.T) {
 func TestSimpleErrors(t *testing.T) {
 	tests := []struct {
 		name     string
-		fn       func(language.Tag) Message
-		enResult Message
+		fn       func(language.Tag) localized
+		enResult localized
 	}{
 		{
 			name:     "UnknownError",
 			fn:       UnknownError,
-			enResult: unknownErrorTag,
+			enResult: unknownErrorFormat,
 		},
 		{
 			name:     "CannotRespondError",
 			fn:       CannotRespondError,
-			enResult: cannotRespondErrorTag,
+			enResult: cannotRespondErrorFormat,
 		},
 	}
 	for _, test := range tests {
@@ -43,12 +43,12 @@ func TestGetErrorMessage(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      structured_error.StructuredError
-		enResult Message
+		enResult localized
 	}{
 		{
 			name:     "Defaults to an unknown error",
 			err:      structured_error.Wrap(anError, structured_error.ErrorType(999)),
-			enResult: unknownErrorTag,
+			enResult: unknownErrorFormat,
 		},
 	}
 

@@ -4,7 +4,9 @@ type ErrorType int
 
 const (
 	CannotSplitMessage ErrorType = iota
+	RateLimited
 	TwitterError
+	DuplicateTweetError
 )
 
 type StructuredError interface {

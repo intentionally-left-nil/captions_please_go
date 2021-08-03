@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -185,6 +186,57 @@ func TestTwitterLimiterWait(t *testing.T) {
 				assert.Equal(t, stillWaitingErr, err)
 			default:
 				assert.Fail(t, "unexpected error")
+			}
+		})
+	}
+}
+
+func TestValidateResponse(t *testing.T) {
+	anError := errors.New("oops")
+	tests := []struct {
+		name       string
+		json       string
+		statusCode int
+		expected   structured_error.StructuredError
+	}{
+		{
+			name:       "Returns a nil error if the status is 200",
+			statusCode: 200,
+			expected:   nil,
+		},
+		{
+			name:       "Parses a duplicate error",
+			json:       "{\"errors\":[{\"code\":187,\"message\":\"Status is a duplicate.\"}]}",
+			statusCode: 400,
+			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweetError),
+		},
+		{
+			name:       "Parses a rate limit error",
+			json:       "{\"errors\":[{\"code\":88,\"message\":\"staaaahp\"}]}",
+			statusCode: 429,
+			expected:   structured_error.Wrap(anError, structured_error.RateLimited),
+		},
+		{
+			name:       "Returns a generic Twitter error if unknow",
+			json:       "{\"errors\":[{\"code\":999,\"message\":\"staaaahp\"}]}",
+			statusCode: 429,
+			expected:   structured_error.Wrap(anError, structured_error.TwitterError),
+		},
+		{
+			name:       "Prefers the last error it finds",
+			json:       "{\"errors\":[{\"code\":88,\"message\":\"staaaahp\"},{\"code\":187,\"message\":\"Status is a duplicate.\"}]}",
+			statusCode: 429,
+			expected:   structured_error.Wrap(anError, structured_error.DuplicateTweetError),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := validateResponse(test.statusCode, []byte(test.json))
+			if test.expected == nil {
+				assert.NoError(t, response)
+			} else {
+				assert.Error(t, response)
+				assert.Equal(t, test.expected.Type(), response.Type())
 			}
 		})
 	}

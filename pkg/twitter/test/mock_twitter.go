@@ -23,49 +23,52 @@ type MockTwitter struct {
 	TweetReplyMock         func(tweetID string, message string) (*twitter.Tweet, error)
 }
 
-func (m *MockTwitter) GetWebhooks(ctx context.Context) ([]twitter.Webhook, error) {
+func (m *MockTwitter) GetWebhooks(ctx context.Context) ([]twitter.Webhook, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.GetWebhooksMock)
 	webhooks, err := m.GetWebhooksMock()
-	return webhooks, err
+	return webhooks, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) CreateWebhook(ctx context.Context, url string) (twitter.Webhook, error) {
+func (m *MockTwitter) CreateWebhook(ctx context.Context, url string) (twitter.Webhook, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.CreateWebhookMock)
 	webhook, err := m.CreateWebhookMock(url)
-	return webhook, err
+	return webhook, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) DeleteWebhook(ctx context.Context, id string) error {
+func (m *MockTwitter) DeleteWebhook(ctx context.Context, id string) structured_error.StructuredError {
 	assert.NotNil(m.T, m.DeleteWebhookMock)
-	return m.DeleteWebhookMock(id)
+	err := m.DeleteWebhookMock(id)
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) GetSubscriptions(ctx context.Context) ([]twitter.Subscription, error) {
+func (m *MockTwitter) GetSubscriptions(ctx context.Context) ([]twitter.Subscription, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.GetSubscriptionsMock)
 	subscription, err := m.GetSubscriptionsMock()
-	return subscription, err
+	return subscription, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) DeleteSubscription(ctx context.Context, id string) error {
+func (m *MockTwitter) DeleteSubscription(ctx context.Context, id string) structured_error.StructuredError {
 	assert.NotNil(m.T, m.DeleteSubscriptionMock)
-	return m.DeleteSubscriptionMock(id)
+	err := m.DeleteSubscriptionMock(id)
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) AddSubscription(ctx context.Context) error {
+func (m *MockTwitter) AddSubscription(ctx context.Context) structured_error.StructuredError {
 	assert.NotNil(m.T, m.AddSubscriptionMock)
-	return m.AddSubscriptionMock()
+	err := m.AddSubscriptionMock()
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) GetTweet(ctx context.Context, id string) (*twitter.Tweet, error) {
+func (m *MockTwitter) GetTweet(ctx context.Context, id string) (*twitter.Tweet, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.GetTweetMock)
 	tweet, err := m.GetTweetMock(id)
-	return tweet, err
+	return tweet, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) GetTweetRaw(ctx context.Context, id string) (*http.Response, error) {
+func (m *MockTwitter) GetTweetRaw(ctx context.Context, id string) (*http.Response, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.GetTweetRawMock)
 	resp, err := m.GetTweetRawMock(id)
-	return resp, err
+	return resp, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
 func (m *MockTwitter) TweetReply(ctx context.Context, id string, message string) (*twitter.Tweet, structured_error.StructuredError) {

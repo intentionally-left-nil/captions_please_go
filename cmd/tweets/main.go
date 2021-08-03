@@ -68,6 +68,7 @@ func getTweet(c *cli.Context) error {
 
 func processTweet(c *cli.Context) error {
 	client := getClient()
+	var err error
 	response, err := client.GetTweetRaw(context.Background(), c.String("id"))
 	if err == nil {
 		createData := map[string]interface{}{}

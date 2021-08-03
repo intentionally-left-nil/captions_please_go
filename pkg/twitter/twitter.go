@@ -89,14 +89,14 @@ func (tl *twitterLimiter) wait(ctx context.Context, route string) error {
 }
 
 type Twitter interface {
-	GetWebhooks(ctx context.Context) ([]Webhook, error)
-	CreateWebhook(ctx context.Context, url string) (Webhook, error)
-	DeleteWebhook(ctx context.Context, webhookID string) error
-	GetSubscriptions(ctx context.Context) ([]Subscription, error)
-	DeleteSubscription(ctx context.Context, subscriptionID string) error
-	AddSubscription(ctx context.Context) error
-	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, error)
-	GetTweet(ctx context.Context, tweetID string) (*Tweet, error)
+	GetWebhooks(ctx context.Context) ([]Webhook, structured_error.StructuredError)
+	CreateWebhook(ctx context.Context, url string) (Webhook, structured_error.StructuredError)
+	DeleteWebhook(ctx context.Context, webhookID string) structured_error.StructuredError
+	GetSubscriptions(ctx context.Context) ([]Subscription, structured_error.StructuredError)
+	DeleteSubscription(ctx context.Context, subscriptionID string) structured_error.StructuredError
+	AddSubscription(ctx context.Context) structured_error.StructuredError
+	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, structured_error.StructuredError)
+	GetTweet(ctx context.Context, tweetID string) (*Tweet, structured_error.StructuredError)
 	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError)
 }
 
@@ -110,6 +110,15 @@ type Subscription struct {
 	Id string `json:"user_id"`
 }
 
+type twitterError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+type errorResponse struct {
+	Errors []twitterError `json:"errors"`
+}
+
 const URL = "https://api.twitter.com/1.1/"
 
 func NewTwitter(consumerKey string, consumerSecret string, accessToken string, accessTokenSecret string, bearerToken string) Twitter {
@@ -119,17 +128,17 @@ func NewTwitter(consumerKey string, consumerSecret string, accessToken string, a
 	return &twitter{client: client, bearer: bearerToken}
 }
 
-func (t *twitter) GetWebhooks(ctx context.Context) ([]Webhook, error) {
+func (t *twitter) GetWebhooks(ctx context.Context) ([]Webhook, structured_error.StructuredError) {
 	var webhooks []Webhook
 	response, err := t.get(ctx, "get_webhooks", URL+"account_activity/all/dev/webhooks.json")
 	if err == nil {
 		webhooks = make([]Webhook, 0)
 		err = GetJSON(response, &webhooks)
 	}
-	return webhooks, err
+	return webhooks, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) error {
+func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) structured_error.StructuredError {
 	err := t.limiter.wait(ctx, "delete_webhook")
 	url := fmt.Sprintf("%saccount_activity/all/dev/webhooks/%s.json", URL, webhookID)
 	if err == nil {
@@ -145,24 +154,24 @@ func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) error {
 				body, err = ioutil.ReadAll(response.Body)
 				logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 				if err == nil {
-					err = validateStatusCode(response)
+					err = validateResponse(response.StatusCode, body)
 				}
 			}
 		}
 	}
-	return err
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) CreateWebhook(ctx context.Context, webhookUrl string) (Webhook, error) {
+func (t *twitter) CreateWebhook(ctx context.Context, webhookUrl string) (Webhook, structured_error.StructuredError) {
 	var webhook Webhook
 	response, err := t.post(ctx, "create_webhook", URL+"account_activity/all/dev/webhooks.json", url.Values{"url": []string{webhookUrl}})
 	if err == nil {
 		err = GetJSON(response, &webhook)
 	}
-	return webhook, err
+	return webhook, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) GetSubscriptions(ctx context.Context) ([]Subscription, error) {
+func (t *twitter) GetSubscriptions(ctx context.Context) ([]Subscription, structured_error.StructuredError) {
 	type apiResponse struct {
 		Subscriptions []Subscription `json:"subscriptions"`
 	}
@@ -186,10 +195,10 @@ func (t *twitter) GetSubscriptions(ctx context.Context) ([]Subscription, error) 
 			}
 		}
 	}
-	return subscriptions, err
+	return subscriptions, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) DeleteSubscription(ctx context.Context, subscriptionID string) error {
+func (t *twitter) DeleteSubscription(ctx context.Context, subscriptionID string) structured_error.StructuredError {
 	err := t.limiter.wait(ctx, "delete_subscription")
 	if err == nil {
 		url := fmt.Sprintf("%saccount_activity/all/dev/subscriptions/%s.json", URL, subscriptionID)
@@ -206,36 +215,37 @@ func (t *twitter) DeleteSubscription(ctx context.Context, subscriptionID string)
 				body, err = ioutil.ReadAll(response.Body)
 				logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 				if err == nil {
-					err = validateStatusCode(response)
+					err = validateResponse(response.StatusCode, body)
 				}
 			}
 		}
 	}
-	return err
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) AddSubscription(ctx context.Context) error {
+func (t *twitter) AddSubscription(ctx context.Context) structured_error.StructuredError {
 	response, err := t.post(ctx, "add_subscription", URL+"account_activity/all/dev/subscriptions.json", url.Values{})
 	if err == nil {
 		var body []byte
 		body, err = ioutil.ReadAll(response.Body)
 		logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
 		if err == nil {
-			err = validateStatusCode(response)
+			err = validateResponse(response.StatusCode, body)
 		}
 	}
-	return err
+	return structured_error.Wrap(err, structured_error.TwitterError)
 }
-func (t *twitter) GetTweet(ctx context.Context, tweetID string) (*Tweet, error) {
+func (t *twitter) GetTweet(ctx context.Context, tweetID string) (*Tweet, structured_error.StructuredError) {
 	tweet := Tweet{}
+	var err error
 	response, err := t.GetTweetRaw(ctx, tweetID)
 	if err == nil {
 		err = GetJSON(response, &tweet)
 	}
-	return &tweet, err
+	return &tweet, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, error) {
+func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, structured_error.StructuredError) {
 	var response *http.Response
 	err := t.limiter.wait(ctx, "get_tweet")
 	if err == nil {
@@ -253,7 +263,7 @@ func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Respon
 			t.limiter.setLimit("get_tweet", response)
 		}
 	}
-	return response, err
+	return response, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
 func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError) {
@@ -302,11 +312,26 @@ func (t *twitter) post(ctx context.Context, endpoint string, url string, data ur
 	return response, err
 }
 
-func validateStatusCode(response *http.Response) error {
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("bad http status code %d", response.StatusCode)
+func validateResponse(statusCode int, body []byte) structured_error.StructuredError {
+	var err structured_error.StructuredError = nil
+	if statusCode < 200 || statusCode >= 300 {
+		var errResponse errorResponse
+		unmarshalErr := json.Unmarshal(body, &errResponse)
+		if unmarshalErr == nil && len(errResponse.Errors) > 0 {
+			errorType := structured_error.TwitterError
+			for _, twitterError := range errResponse.Errors {
+				switch twitterError.Code {
+				case 88:
+					errorType = structured_error.RateLimited
+				case 187:
+					errorType = structured_error.DuplicateTweetError
+				}
+			}
+			underlyingErr := fmt.Errorf("Twitter error (%d): %s", statusCode, string(body))
+			err = structured_error.Wrap(underlyingErr, errorType)
+		}
 	}
-	return nil
+	return err
 }
 
 func GetJSON(response *http.Response, dest interface{}) error {
@@ -315,8 +340,7 @@ func GetJSON(response *http.Response, dest interface{}) error {
 		return err
 	}
 	logrus.Debug(fmt.Sprintf("Twitter response:\n%v\n", string(body)))
-
-	err = validateStatusCode(response)
+	err = validateResponse(response.StatusCode, body)
 	if err != nil {
 		return err
 	}

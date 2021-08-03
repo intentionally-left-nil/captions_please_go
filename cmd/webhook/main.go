@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AnilRedshift/captions_please_go/internal/api"
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -103,7 +103,7 @@ func printJSON(v interface{}) {
 }
 
 func getClient() twitter.Twitter {
-	secrets, err := api.NewSecrets()
+	secrets, err := common.NewSecrets()
 	if err != nil {
 		panic(err)
 	}

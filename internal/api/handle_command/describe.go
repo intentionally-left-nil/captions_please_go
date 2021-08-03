@@ -1,4 +1,4 @@
-package api
+package handle_command
 
 import (
 	"context"
@@ -29,7 +29,7 @@ type visionJobResult struct {
 const lowVisionConfidenceCutoff = 0.25
 
 func WithDescribe(ctx context.Context, client twitter.Twitter) context.Context {
-	secrets := GetSecrets(ctx)
+	secrets := common.GetSecrets(ctx)
 	describer := vision.NewAzureVision(secrets.AzureComputerVisionKey)
 	state := describeState{
 		describer: describer,

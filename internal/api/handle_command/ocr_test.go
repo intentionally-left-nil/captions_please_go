@@ -1,10 +1,11 @@
-package api
+package handle_command
 
 import (
 	"context"
 	"errors"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
@@ -18,8 +19,8 @@ func TestWithOCR(t *testing.T) {
 	defer leaktest.Check(t)()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	secrets := &Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
-	ctx = withSecrets(ctx, secrets)
+	secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
+	ctx = common.SetSecrets(ctx, secrets)
 	mockTwitter := twitter_test.MockTwitter{T: t}
 	ctx, err := WithOCR(ctx, &mockTwitter)
 	assert.NoError(t, err)

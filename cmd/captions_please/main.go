@@ -15,12 +15,12 @@ import (
 var PORT = 8080
 
 func main() {
-	ctx, err := api.WithSecrets(context.Background())
+	ctx, err := common.WithSecrets(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	secrets := api.GetSecrets(ctx)
+	secrets := common.GetSecrets(ctx)
 	client := twitter.NewTwitter(
 		secrets.TwitterConsumerKey,
 		secrets.TwitterConsumerSecret,

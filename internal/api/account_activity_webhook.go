@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/handle_command"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
@@ -29,14 +30,8 @@ type ActivityConfig struct {
 	WebhookTimeout     time.Duration
 }
 
-type activityJob struct {
-	botId string
-	tweet *twitter.Tweet
-	out   chan<- common.ActivityResult
-}
-
 type activityState struct {
-	jobs   chan activityJob
+	jobs   chan common.ActivityJob
 	config ActivityConfig
 }
 
@@ -50,13 +45,13 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	logrus.Debug(fmt.Sprintf("Initializing AccountActivity with %d workers and %d outstanding jobs", config.Workers, config.MaxOutstandingJobs))
 	state := &activityState{
 		config: config,
-		jobs:   make(chan activityJob, config.MaxOutstandingJobs),
+		jobs:   make(chan common.ActivityJob, config.MaxOutstandingJobs),
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
-	ctx = WithAltText(ctx, client)
-	ctx = WithDescribe(ctx, client)
-	ctx = WithAuto(ctx, client)
-	ctx, err = WithOCR(ctx, client)
+	ctx = handle_command.WithAltText(ctx, client)
+	ctx = handle_command.WithDescribe(ctx, client)
+	ctx = handle_command.WithAuto(ctx, client)
+	ctx, err = handle_command.WithOCR(ctx, client)
 	if err == nil {
 		ctx, err = replier.WithReplier(ctx, client)
 	}
@@ -66,11 +61,11 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 			go func(i int) {
 				logrus.Debug(fmt.Sprintf("Initializing Activity worker %d", i))
 				for job := range state.jobs {
-					logrus.Debug(fmt.Sprintf("Worker %d processing job %s", i, job.tweet.Id))
+					logrus.Debug(fmt.Sprintf("Worker %d processing job %s", i, job.Tweet.Id))
 					for result := range handleNewTweetActivity(ctx, job) {
-						job.out <- result
+						job.Out <- result
 					}
-					close(job.out)
+					close(job.Out)
 				}
 			}(i)
 		}
@@ -129,7 +124,7 @@ func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse
 		// If we can't queue it due to backpressure, then we need to propagate the timeout upwards
 		out := make(chan common.ActivityResult)
 		tweet := tweet
-		job := activityJob{botId: data.BotId, tweet: &tweet, out: out}
+		job := common.ActivityJob{BotId: data.BotId, Tweet: &tweet, Out: out}
 		go func() {
 			select {
 			case state.jobs <- job:
@@ -167,9 +162,9 @@ func getActivityState(ctx context.Context) *activityState {
 	return ctx.Value(theActivityStateKey).(*activityState)
 }
 
-func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan common.ActivityResult {
-	botMention := getVisibleMention(job.botId, job.tweet)
-	if botMention == nil || job.tweet.User.Id == job.botId {
+func handleNewTweetActivity(ctx context.Context, job common.ActivityJob) <-chan common.ActivityResult {
+	botMention := getVisibleMention(job.BotId, job.Tweet)
+	if botMention == nil || job.Tweet.User.Id == job.BotId {
 		result := common.ActivityResult{Action: "User didnt mention us. Ignoring"}
 		out := make(chan common.ActivityResult)
 		go func() {
@@ -178,8 +173,8 @@ func handleNewTweetActivity(ctx context.Context, job activityJob) <-chan common.
 		}()
 		return out
 	}
-	command := getCommand(job.tweet, botMention)
-	return handleCommand(ctx, command, job)
+	command := getCommand(job.Tweet, botMention)
+	return handle_command.Command(ctx, command, job)
 }
 
 func getVisibleMention(botId string, tweet *twitter.Tweet) *twitter.Mention {

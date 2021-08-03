@@ -21,8 +21,8 @@ func TestWithAccountActivity(t *testing.T) {
 	defer leaktest.Check(t)()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	secrets := &Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
-	ctx = withSecrets(ctx, secrets)
+	secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
+	ctx = common.SetSecrets(ctx, secrets)
 	mockTwitter := &twitter_test.MockTwitter{T: t}
 	ctx, err := WithAccountActivity(ctx, ActivityConfig{}, mockTwitter)
 	state := getActivityState(ctx)
@@ -91,8 +91,8 @@ func TestAccountActivityWebhook(t *testing.T) {
 			defer leaktest.Check(t)()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			secrets := &Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
-			ctx = withSecrets(ctx, secrets)
+			secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
+			ctx = common.SetSecrets(ctx, secrets)
 			var delayCount uint64
 			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(string, string) (*twitter.Tweet, error) {
 				count := atomic.AddUint64(&delayCount, 1)

@@ -1,15 +1,14 @@
-package api
+package handle_command
 
 import (
 	"context"
 	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/handle_command"
 	"github.com/urfave/cli/v2"
 )
 
-func handleCommand(ctx context.Context, command string, job activityJob) <-chan common.ActivityResult {
+func Command(ctx context.Context, command string, job common.ActivityJob) <-chan common.ActivityResult {
 	builder := &strings.Builder{}
 	var out <-chan common.ActivityResult
 	helpTemplate := `Commands:
@@ -24,7 +23,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 					err := cli.ShowAppHelp(c)
 					if err == nil {
 						reply := builder.String()
-						out = handle_command.Help(ctx, job.tweet, reply)
+						out = Help(ctx, job.Tweet, reply)
 					}
 					return err
 				},
@@ -33,7 +32,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 				Name:   "auto",
 				Hidden: true,
 				Action: func(c *cli.Context) error {
-					out = HandleAuto(ctx, job.tweet)
+					out = HandleAuto(ctx, job.Tweet)
 					return nil
 				},
 			},
@@ -41,7 +40,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 				Name:  "alt_text",
 				Usage: "See what description the user gave when creating the tweet",
 				Action: func(c *cli.Context) error {
-					out = HandleAltText(ctx, job.tweet)
+					out = HandleAltText(ctx, job.Tweet)
 					return nil
 				},
 			},
@@ -49,7 +48,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 				Name:  "ocr",
 				Usage: "Scan the immage for text",
 				Action: func(c *cli.Context) error {
-					out = HandleOCR(ctx, job.tweet)
+					out = HandleOCR(ctx, job.Tweet)
 					return nil
 				},
 			},
@@ -57,7 +56,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 				Name:  "describe",
 				Usage: "Use AI to create a description of the image",
 				Action: func(c *cli.Context) error {
-					out = HandleDescribe(ctx, job.tweet)
+					out = HandleDescribe(ctx, job.Tweet)
 					return nil
 				},
 			},
@@ -68,7 +67,7 @@ func handleCommand(ctx context.Context, command string, job activityJob) <-chan 
 	err := app.Run(strings.Split("captions_please "+command, " "))
 	if err != nil {
 		out := make(chan common.ActivityResult, 1)
-		result := common.ActivityResult{Tweet: job.tweet, Err: err, Action: "handle command"}
+		result := common.ActivityResult{Tweet: job.Tweet, Err: err, Action: "handle command"}
 		out <- result
 		close(out)
 	}

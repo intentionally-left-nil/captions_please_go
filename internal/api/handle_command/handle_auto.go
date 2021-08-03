@@ -1,4 +1,4 @@
-package api
+package handle_command
 
 import (
 	"context"

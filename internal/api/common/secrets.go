@@ -1,4 +1,4 @@
-package api
+package common
 
 import (
 	"context"
@@ -59,13 +59,13 @@ func WithSecrets(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	return withSecrets(ctx, secrets), nil
+	return SetSecrets(ctx, secrets), nil
 }
 
 func GetSecrets(ctx context.Context) *Secrets {
 	return ctx.Value(theKey).(*Secrets)
 }
 
-func withSecrets(ctx context.Context, secrets *Secrets) context.Context {
+func SetSecrets(ctx context.Context, secrets *Secrets) context.Context {
 	return context.WithValue(ctx, theKey, secrets)
 }

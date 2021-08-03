@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/stretchr/testify/assert"
@@ -150,8 +151,8 @@ func TestWebhookStatus(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			req := &http.Request{}
-			secrets := &Secrets{}
-			ctx := withSecrets(context.Background(), secrets)
+			secrets := &common.Secrets{}
+			ctx := common.SetSecrets(context.Background(), secrets)
 
 			originalNewTwitter := newTwitter
 			newTwitter = func(_ string, _ string, _ string, _ string, _ string) twitter.Twitter {

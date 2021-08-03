@@ -1,4 +1,4 @@
-package api
+package handle_command
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
@@ -20,8 +21,8 @@ func TestWithDescribe(t *testing.T) {
 	defer leaktest.Check(t)()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	secrets := &Secrets{AzureComputerVisionKey: "123"}
-	ctx = withSecrets(ctx, secrets)
+	secrets := &common.Secrets{AzureComputerVisionKey: "123"}
+	ctx = common.SetSecrets(ctx, secrets)
 	mockTwitter := twitter_test.MockTwitter{T: t}
 	ctx = WithDescribe(ctx, &mockTwitter)
 	state := getDescriberState(ctx)

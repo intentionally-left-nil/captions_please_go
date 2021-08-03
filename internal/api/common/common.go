@@ -7,3 +7,9 @@ type ActivityResult struct {
 	Action string
 	Err    error
 }
+
+type ActivityJob struct {
+	BotId string
+	Tweet *twitter.Tweet
+	Out   chan<- ActivityResult
+}

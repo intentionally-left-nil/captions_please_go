@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AnilRedshift/captions_please_go/internal/api"
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -56,7 +56,7 @@ func onBefore(c *cli.Context) error {
 }
 
 func ocr(c *cli.Context) error {
-	secrets, err := api.NewSecrets()
+	secrets, err := common.NewSecrets()
 	if err == nil {
 		var ocr vision.OCR
 		switch c.String("provider") {
@@ -80,7 +80,7 @@ func ocr(c *cli.Context) error {
 }
 
 func caption(c *cli.Context) error {
-	secrets, err := api.NewSecrets()
+	secrets, err := common.NewSecrets()
 	if err == nil {
 		var describer vision.Describer
 		switch c.String("provider") {

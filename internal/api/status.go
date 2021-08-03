@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
@@ -18,7 +19,7 @@ func WebhookStatus(ctx context.Context, req *http.Request) APIResponse {
 	ctx, onComplete := context.WithTimeout(ctx, time.Second*30)
 	defer onComplete()
 
-	secrets := GetSecrets(ctx)
+	secrets := common.GetSecrets(ctx)
 	twitter := newTwitter(secrets.TwitterConsumerKey,
 		secrets.TwitterConsumerSecret,
 		secrets.TwitterAccessToken,

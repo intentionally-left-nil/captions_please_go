@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,8 +42,8 @@ func TestEncodeCRCToken(t *testing.T) {
 			url, err := url.Parse(test.url)
 			if assert.NoError(t, err) {
 				req := &http.Request{URL: url}
-				secrets := &Secrets{TwitterConsumerSecret: test.consumerSecret}
-				ctx := withSecrets(context.Background(), secrets)
+				secrets := &common.Secrets{TwitterConsumerSecret: test.consumerSecret}
+				ctx := common.SetSecrets(context.Background(), secrets)
 				response := EncodeCRCToken(ctx, req)
 				assert.Equal(t, test.status, response.status)
 

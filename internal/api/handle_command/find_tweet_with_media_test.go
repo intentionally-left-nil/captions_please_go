@@ -67,9 +67,9 @@ func TestFindTweetWithMedia(t *testing.T) {
 			expected: &tweetWithMedia,
 		},
 		{
-			name:    "Errors if the media is too high (great-grandparent)",
+			name:    "Errors if the media is too high (great-great-grandparent)",
 			tweet:   &tweetWithoutMedia,
-			parents: []*twitter.Tweet{&tweetWithoutMedia, &tweetWithoutMedia, &tweetWithMedia},
+			parents: []*twitter.Tweet{&tweetWithoutMedia, &tweetWithoutMedia, &tweetWithoutMedia, &tweetWithMedia},
 			err:     structured_error.Wrap(anError, structured_error.NoPhotosFound),
 		},
 		{

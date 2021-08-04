@@ -75,6 +75,12 @@ func create(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Webhook %s successfully created\n", webhook.Id)
+
+	err = client.AddSubscription(context.Background())
+	if err == nil {
+		fmt.Println("Subscriptionsuccessfully created")
+	}
 	printJSON(webhook)
 	return nil
 }

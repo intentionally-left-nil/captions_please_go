@@ -163,7 +163,7 @@ func getActivityState(ctx context.Context) *activityState {
 func handleNewTweetActivity(ctx context.Context, job common.ActivityJob) common.ActivityResult {
 	botMention := getVisibleMention(job.BotId, job.Tweet)
 	if botMention == nil || job.Tweet.User.Id == job.BotId {
-		result := common.ActivityResult{Action: "User didnt mention us. Ignoring"}
+		result := common.ActivityResult{Tweet: job.Tweet, Action: "User didnt mention us. Ignoring"}
 		return result
 	}
 	command := getCommand(job.Tweet, botMention)

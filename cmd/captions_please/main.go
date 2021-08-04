@@ -67,7 +67,12 @@ func main() {
 					if result.Err != nil {
 						logrus.Error(fmt.Sprintf("%s returned error %v", result.Tweet.Id, result.Err))
 					} else {
-						logrus.Info(fmt.Sprintf("%s was successfully processed with action %s", result.Tweet.Id, result.Action))
+						tweetId := ""
+						if result.Tweet != nil {
+							// It's possible the tweet isn't set if we bailed out early in processing
+							tweetId = result.Tweet.Id
+						}
+						logrus.Info(fmt.Sprintf("%s was successfully processed with action %s", tweetId, result.Action))
 					}
 				}
 			}()

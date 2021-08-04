@@ -141,11 +141,12 @@ func (t *twitter) GetWebhooks(ctx context.Context) ([]Webhook, structured_error.
 func (t *twitter) DeleteWebhook(ctx context.Context, webhookID string) structured_error.StructuredError {
 	err := t.limiter.wait(ctx, "delete_webhook")
 	url := fmt.Sprintf("%saccount_activity/all/dev/webhooks/%s.json", URL, webhookID)
+	logrus.Debug(fmt.Sprintf("DeleteWebhook calling %s", url))
 	if err == nil {
 		var request *http.Request
 		var response *http.Response
 		request, err = http.NewRequestWithContext(ctx, "DELETE", url, nil)
-		if err != nil {
+		if err == nil {
 			response, err = t.client.Do(request)
 			t.limiter.setLimit("delete_webhook", response)
 

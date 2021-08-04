@@ -6,14 +6,14 @@ import (
 	"golang.org/x/text/language"
 )
 
-type directive int
+type directive string
 
 const (
-	autoDirective directive = iota
-	helpDirective
-	altTextDirective
-	ocrDirective
-	describeDirective
+	autoDirective     directive = "auto"
+	helpDirective     directive = "help"
+	altTextDirective  directive = "altText"
+	ocrDirective      directive = "ocr"
+	describeDirective directive = "describe"
 )
 
 type command struct {

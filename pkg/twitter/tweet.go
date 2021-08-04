@@ -217,6 +217,8 @@ func (t *Tweet) UnmarshalJSON(bytes []byte) error {
 	t.User = raw.User
 	t.Type = raw.TweetType()
 
+	t.QuoteTweet = raw.QuoteTweet
+
 	t.Mentions, err = raw.Mentions()
 	if err != nil {
 		return err

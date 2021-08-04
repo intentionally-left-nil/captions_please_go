@@ -8,7 +8,7 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
-const MAX_DEPTH = 2
+const MAX_DEPTH = 3
 
 func findTweetWithMedia(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, structured_error.StructuredError) {
 	return findTweetWithMediaHelper(ctx, client, tweet, false, MAX_DEPTH)

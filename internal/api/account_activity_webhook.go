@@ -92,19 +92,19 @@ func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse
 	err := twitter.GetJSON(&http.Response{Body: req.Body, StatusCode: http.StatusOK}, &data)
 	logDebugJSON(data)
 	if err != nil {
-		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: err})
+		return APIResponse{Status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: err})
 	}
 
 	if data.BotId == "" {
-		return APIResponse{status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: errors.New("missing for_user_id")})
+		return APIResponse{Status: http.StatusBadRequest}, singleActivityResult(common.ActivityResult{Action: "parsing json", Err: errors.New("missing for_user_id")})
 	}
 
 	if data.FromBlockedUser {
-		return APIResponse{status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "ignoring blocked user"})
+		return APIResponse{Status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "ignoring blocked user"})
 	}
 
 	if len(data.CreateData) == 0 {
-		return APIResponse{status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "no creation events"})
+		return APIResponse{Status: http.StatusOK}, singleActivityResult(common.ActivityResult{Action: "no creation events"})
 	}
 
 	// 1. Create a multiplexer to store the results for parsing each tweet
@@ -153,7 +153,7 @@ func AccountActivityWebhook(ctx context.Context, req *http.Request) (APIResponse
 		wg.Wait()
 		close(combinedOut)
 	}()
-	return APIResponse{status: http.StatusOK}, combinedOut
+	return APIResponse{Status: http.StatusOK}, combinedOut
 }
 
 func getActivityState(ctx context.Context) *activityState {

@@ -46,33 +46,33 @@ func TestAccountActivityWebhook(t *testing.T) {
 		{
 			name:            "Does nothing if the bot is not mentioned",
 			message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[{\"id_str\":\"tweetid\", \"text\": \"hello\"}]}",
-			apiResponse:     APIResponse{status: http.StatusOK},
+			apiResponse:     APIResponse{Status: http.StatusOK},
 			expectedActions: []string{"User didnt mention us. Ignoring"},
 		},
 		{
 			name:            "Errors if the JSON payload is not a valid tweet",
 			message:         "not a tweet",
-			apiResponse:     APIResponse{status: http.StatusBadRequest},
+			apiResponse:     APIResponse{Status: http.StatusBadRequest},
 			expectedActions: []string{"parsing json"},
 			numErrors:       1,
 		},
 		{
 			name:            "Errors if the botID is not set",
 			message:         "{}",
-			apiResponse:     APIResponse{status: http.StatusBadRequest},
+			apiResponse:     APIResponse{Status: http.StatusBadRequest},
 			expectedActions: []string{"parsing json"},
 			numErrors:       1,
 		},
 		{
 			name:            "Ignores tweets from blocked users",
 			message:         "{\"for_user_id\":\"123\", \"user_has_blocked\": true}",
-			apiResponse:     APIResponse{status: http.StatusOK},
+			apiResponse:     APIResponse{Status: http.StatusOK},
 			expectedActions: []string{"ignoring blocked user"},
 		},
 		{
 			name:            "Ignores empty creation data requests",
 			message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[]}",
-			apiResponse:     APIResponse{status: http.StatusOK},
+			apiResponse:     APIResponse{Status: http.StatusOK},
 			expectedActions: []string{"no creation events"},
 		},
 		// TODO replace with a new test

@@ -12,7 +12,7 @@ import (
 
 func TestWriteResponse(t *testing.T) {
 	w := httptest.NewRecorder()
-	response := APIResponse{status: 123, response: "hello world"}
+	response := APIResponse{Status: 123, Response: "hello world"}
 	WriteResponse(w, response)
 
 	result := w.Result()
@@ -33,7 +33,7 @@ func (u *unencodable) MarshalJSON() ([]byte, error) {
 
 func TestWriteResponsePanicsIfNotEncodable(t *testing.T) {
 	w := httptest.NewRecorder()
-	response := APIResponse{status: 123, response: &unencodable{}}
+	response := APIResponse{Status: 123, Response: &unencodable{}}
 	assert.Panics(t, func() {
 		WriteResponse(w, response)
 	})

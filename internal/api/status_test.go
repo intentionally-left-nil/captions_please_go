@@ -171,7 +171,7 @@ func TestWebhookStatus(t *testing.T) {
 			}()
 
 			response := WebhookStatus(ctx, req)
-			assert.Equal(t, test.statusCode, response.status)
+			assert.Equal(t, test.statusCode, response.Status)
 		})
 
 	}

@@ -45,11 +45,11 @@ func TestEncodeCRCToken(t *testing.T) {
 				secrets := &common.Secrets{TwitterConsumerSecret: test.consumerSecret}
 				ctx := common.SetSecrets(context.Background(), secrets)
 				response := EncodeCRCToken(ctx, req)
-				assert.Equal(t, test.status, response.status)
+				assert.Equal(t, test.status, response.Status)
 
 				if test.status == http.StatusOK {
 					assert.NotEmpty(t, test.digest, "Test is invalid, digest must be specified")
-					token := response.response.(map[string]string)["response_token"]
+					token := response.Response.(map[string]string)["response_token"]
 					assert.Equal(t, test.digest, token)
 				}
 			}

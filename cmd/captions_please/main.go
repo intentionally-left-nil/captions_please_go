@@ -79,6 +79,8 @@ func main() {
 					}
 				}
 			}()
+		default:
+			response = api.APIResponse{Status: http.StatusMethodNotAllowed}
 		}
 		api.WriteResponse(w, response)
 	}

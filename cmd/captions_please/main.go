@@ -5,16 +5,31 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api"
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 )
 
 var PORT = 8080
 
 func main() {
+	app := &cli.App{
+		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "verbose"},
+		},
+		Before: func(c *cli.Context) error {
+			if c.Bool("verbose") {
+				logrus.SetLevel(logrus.DebugLevel)
+			}
+			return nil
+		},
+	}
+	app.Run(os.Args)
 	ctx, err := common.WithSecrets(context.Background())
 	if err != nil {
 		panic(err)
@@ -48,8 +63,12 @@ func main() {
 			var out <-chan common.ActivityResult
 			response, out = api.AccountActivityWebhook(ctx, req)
 			go func() {
-				for range out {
-					// Just drain the result, it's already logged in the pipeline
+				for result := range out {
+					if result.Err != nil {
+						logrus.Error(fmt.Sprintf("%s returned error %v", result.Tweet.Id, result.Err))
+					} else {
+						logrus.Info(fmt.Sprintf("%s was successfully processed with action %s", result.Tweet.Id, result.Action))
+					}
 				}
 			}()
 		}

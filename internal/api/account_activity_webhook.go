@@ -185,9 +185,6 @@ func getCommand(tweet *twitter.Tweet, mention *twitter.Mention) string {
 		command = strings.TrimSpace(tweet.FullText[mention.EndIndex+1:])
 	}
 
-	if command == "" {
-		command = "auto"
-	}
 	logrus.Debug(fmt.Sprintf("command to parse is %s", command))
 	return command
 }

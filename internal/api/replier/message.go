@@ -96,7 +96,7 @@ func HelpMessage(ctx context.Context) Localized {
 	for _, formats := range lines {
 		builder.WriteString("\n")
 		builder.WriteString(string(sprint(ctx, formats[0])))
-		builder.WriteString(":\t")
+		builder.WriteString(": ")
 		builder.WriteString(string(sprint(ctx, formats[1])))
 	}
 	return Localized(builder.String())

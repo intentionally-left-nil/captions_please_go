@@ -16,8 +16,11 @@ import (
 )
 
 func TestHandleHelp(t *testing.T) {
-	helpMessages := []string{
-		"Tag @captions_please in a tweet to interpret the images.\nYou can customize the response by adding one of the following commands after tagging me:\nalt text:\tSee what description the user gave when creating the tweet\nocr:\tScan the image for text\ndescribe:\tUse AI to create a",
+	helpMessages := []string{`Tag @captions_please in a tweet to interpret the images.
+You can customize the response by adding one of the following commands after tagging me:
+alt text: See what description the user gave when creating the tweet
+ocr: Scan the image for text
+describe: Use AI to create a`,
 		"description of the image",
 	}
 	tests := []struct {

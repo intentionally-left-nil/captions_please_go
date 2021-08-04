@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -24,7 +25,7 @@ type ocrState struct {
 type ocrJobResult struct {
 	index int
 	ocr   *vision.OCRResult
-	err   error
+	err   structured_error.StructuredError
 }
 
 func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, error) {
@@ -42,29 +43,11 @@ func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, erro
 	return setOCRState(ctx, state), err
 }
 
-func HandleOCR(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
+func HandleOCR(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	state := getOCRState(ctx)
-	var err error
-	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
-	if err == nil {
-		responses := getOCRMediaResponse(ctx, tweet, mediaTweet)
-		responses = removeDoNothings(responses)
-
-		replies := extractReplies(responses, func(response mediaResponse) string {
-			err = response.err
-			return "I encountered difficulties scanning the image. Sorry!"
-		})
-		sendErr := sendReplies(ctx, state.client, tweet, replies)
-		if err == nil {
-			err = sendErr
-		}
-	} else {
-		sendReplyForBadMedia(ctx, state.client, tweet, err)
-	}
-	out := make(chan common.ActivityResult, 1)
-	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with OCR"}
-	close(out)
-	return out
+	response := combineAndSendResponses(ctx, state.client, tweet, getOCRMediaResponse)
+	response.Action = "reply with OCR"
+	return response
 }
 
 func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
@@ -77,12 +60,15 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 		i := i
 		media := media
 		go func() {
-			if media.Type == "photo" {
-				ocrResult, err := state.google.GetOCR(media.Url)
-				jobs <- ocrJobResult{index: i, ocr: ocrResult, err: err}
+			var ocrResult *vision.OCRResult
+			var err structured_error.StructuredError = nil
+			if media.Type != "photo" {
+				err = structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)
 			} else {
-				jobs <- ocrJobResult{index: i, err: structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)}
+				ocrResult, err = state.google.GetOCR(media.Url)
+
 			}
+			jobs <- ocrJobResult{index: i, ocr: ocrResult, err: err}
 			wg.Done()
 		}()
 	}
@@ -100,15 +86,11 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
-			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: jobResult.ocr.Text}
+			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: replier.Unlocalized(jobResult.ocr.Text)}
+		} else if jobResult.err.Type() == structured_error.WrongMediaType {
+			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			// TODO remove wrapping once this is converted to a structured error
-			sErr := structured_error.Wrap(jobResult.err, structured_error.Unknown)
-			if sErr.Type() == structured_error.WrongMediaType {
-				response = mediaResponse{index: i, responseType: doNothingResponse}
-			} else {
-				response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
-			}
+			response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
 		}
 		responses[i] = response
 	}

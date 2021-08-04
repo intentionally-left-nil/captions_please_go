@@ -55,7 +55,7 @@ func TestHandleOCR(t *testing.T) {
 			name:      "Responds with an error if OCR fails",
 			tweet:     &tweetWithTwoPhotos,
 			googleErr: errors.New("google fired another good engineer now their code is broken"),
-			messages:  []string{"Image 1: I encountered difficulties scanning the image. Sorry!\nImage 2: I encountered difficulties scanning the image. Sorry!"},
+			messages:  []string{"Image 1: My joints are freezing up! Hey @TheOtherAnil can you please fix me?\nImage 2: My joints are freezing up! Hey @TheOtherAnil can you please fix me?"},
 			hasErr:    true,
 		},
 		{
@@ -100,7 +100,7 @@ func TestHandleOCR(t *testing.T) {
 			ctx = setOCRState(ctx, &state)
 			ctx, err := replier.WithReplier(ctx, &mockTwitter)
 			assert.NoError(t, err)
-			result := <-HandleOCR(ctx, test.tweet)
+			result := HandleOCR(ctx, test.tweet)
 
 			if test.hasErr {
 				assert.Error(t, result.Err)

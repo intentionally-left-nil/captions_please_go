@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/message/catalog"
 )
 
-type localized string
+type Localized string
 
 func loadMessages() error {
 	var err error
@@ -41,28 +41,35 @@ const (
 	describeUsageFormat      = "Use AI to create a description of the image"
 	helpUsageFormat          = `Tag @captions_please in a tweet to interpret the images.
 You can customize the response by adding one of the following commands after tagging me:`
-	helpCommandFormat     = "help"
-	altTextCommandFormat  = "alt_text"
-	ocrCommandFormat      = "ocr"
-	describeCommandFormat = "describe"
+	helpCommandFormat                = "help"
+	altTextCommandFormat             = "alt_text"
+	ocrCommandFormat                 = "ocr"
+	describeCommandFormat            = "describe"
+	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
+	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"
+	imageLabelFormat                 = "Image %d: %s"
+	noAltTextFormat                  = "%s didn't provide any alt text when posting the image"
+	noDescriptionsFormat             = "I'm at a loss for words, sorry!"
+	multipleDescriptionsJoinerFormat = "It might also be %s"
+	combineDescriptionAndOCRFormat   = "It contains the text: %s"
 )
 
-func UnknownError(tag language.Tag) localized {
-	return sprint(tag, unknownErrorFormat)
+var errorMapping map[structured_error.ErrorType]string = map[structured_error.ErrorType]string{
+	structured_error.CannotSplitMessage: cannotRespondErrorFormat,
+	structured_error.NoPhotosFound:      noPhotosFormat,
+	structured_error.WrongMediaType:     wrongMediaFormat,
+	structured_error.DescribeError:      noDescriptionsFormat,
 }
 
-func CannotRespondError(tag language.Tag) localized {
-	return sprint(tag, cannotRespondErrorFormat)
-}
-
-func GetErrorMessage(err structured_error.StructuredError, tag language.Tag) localized {
-	switch err.Type() {
-	default:
-		return UnknownError(tag)
+func ErrorMessage(err structured_error.StructuredError, tag language.Tag) Localized {
+	format, ok := errorMapping[err.Type()]
+	if !ok {
+		format = unknownErrorFormat
 	}
+	return sprint(tag, format)
 }
 
-func HelpMessage(tag language.Tag) localized {
+func HelpMessage(tag language.Tag) Localized {
 	lines := [][]string{
 		{altTextCommandFormat, altTextUsageFormat},
 		{ocrCommandFormat, ocrUsageFormat},
@@ -76,11 +83,44 @@ func HelpMessage(tag language.Tag) localized {
 		builder.WriteString(":\t")
 		builder.WriteString(string(sprint(tag, formats[1])))
 	}
-	return localized(builder.String())
+	return Localized(builder.String())
 }
 
-func Unlocalized(message string) localized {
-	return localized(message)
+func LabelImage(tag language.Tag, description Localized, index int) Localized {
+	return sprintf(tag, imageLabelFormat, index+1, description)
+}
+func NoAltText(tag language.Tag, userDisplayName string) Localized {
+	return sprintf(tag, noAltTextFormat, userDisplayName)
+}
+
+func CombineMessages(messages []Localized, joiner string) Localized {
+	asStrings := make([]string, len(messages))
+	for i, message := range messages {
+		asStrings[i] = string(message)
+	}
+	return Localized(strings.Join(asStrings, joiner))
+}
+
+func CombineDescriptions(tag language.Tag, descriptions []string) Localized {
+	messages := make([]Localized, len(descriptions))
+	for i, description := range descriptions {
+		if i == 0 {
+			messages[i] = Unlocalized(description)
+
+		} else {
+			messages[i] = sprintf(tag, multipleDescriptionsJoinerFormat, description)
+		}
+	}
+	return CombineMessages(messages, ". ")
+}
+
+func CombineDescriptionAndOCR(tag language.Tag, description Localized, ocr Localized) Localized {
+	messages := []Localized{description, sprintf(tag, combineDescriptionAndOCRFormat, ocr)}
+	return CombineMessages(messages, ". ")
+}
+
+func Unlocalized(message string) Localized {
+	return Localized(message)
 }
 
 var messages = [...]struct {
@@ -94,8 +134,23 @@ var messages = [...]struct {
 	{"en", ocrUsageFormat, ocrUsageFormat},
 	{"en", describeUsageFormat, describeUsageFormat},
 	{"en", helpUsageFormat, helpUsageFormat},
+	{"en", helpCommandFormat, helpCommandFormat},
+	{"en", altTextCommandFormat, altTextCommandFormat},
+	{"en", ocrCommandFormat, ocrCommandFormat},
+	{"en", describeCommandFormat, describeCommandFormat},
+	{"en", noPhotosFormat, noPhotosFormat},
+	{"en", wrongMediaFormat, wrongMediaFormat},
+	{"en", imageLabelFormat, catalog.String("Image %[1]d: %[2]s")},
+	{"en", noAltTextFormat, catalog.String("%[1]s didn't provide any alt text when posting the image")},
+	{"en", noDescriptionsFormat, noDescriptionsFormat},
+	{"en", multipleDescriptionsJoinerFormat, catalog.String("It might also be %[1]s")},
+	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
 }
 
-func sprint(tag language.Tag, format string) localized {
-	return localized(message.NewPrinter(tag).Sprint(format))
+func sprint(tag language.Tag, format string) Localized {
+	return Localized(message.NewPrinter(tag).Sprint(format))
+}
+
+func sprintf(tag language.Tag, format string, args ...interface{}) Localized {
+	return Localized(message.NewPrinter(tag).Sprintf(format, args...))
 }

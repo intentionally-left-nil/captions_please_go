@@ -2,10 +2,11 @@ package handle_command
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"golang.org/x/text/language"
 )
 
 type autoKey int
@@ -31,56 +32,40 @@ func getAutoState(ctx context.Context) *autoState {
 	return ctx.Value(theAutoKey).(*autoState)
 }
 
-func HandleAuto(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
+func HandleAuto(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	state := getAutoState(ctx)
-	var err error
-	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
-	if err == nil {
-		altTextResponses := getAltTextMediaResponse(ctx, tweet, mediaTweet)
-		ocrResponses := getOCRMediaResponse(ctx, tweet, mediaTweet)
-		describeResponses := getDescribeMediaResponse(ctx, tweet, mediaTweet)
+	response := combineAndSendResponses(ctx, state.client, tweet, getAutoResponse)
+	response.Action = "reply with auto response"
+	return response
+}
 
-		mergedResponses := make([]mediaResponse, len(mediaTweet.Media))
-		for i := 0; i < len(mediaTweet.Media); i++ {
-			altTextResponse := altTextResponses[i]
-			ocrResponse := ocrResponses[i]
-			describeResponse := describeResponses[i]
+func getAutoResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
+	altTextResponses := getAltTextMediaResponse(ctx, tweet, mediaTweet)
+	ocrResponses := getOCRMediaResponse(ctx, tweet, mediaTweet)
+	describeResponses := getDescribeMediaResponse(ctx, tweet, mediaTweet)
 
-			if altTextResponse.responseType == doNothingResponse && ocrResponse.responseType == doNothingResponse && describeResponse.responseType == doNothingResponse {
-				// The media item isn't a photo. Ignore it
-				mergedResponses[i] = altTextResponse
-			} else if altTextResponse.err == nil && altTextResponse.responseType == foundAltTextResponse {
-				// Prefer the user's caption if it exist
-				mergedResponses[i] = altTextResponse
-			} else if ocrResponse.err == nil && describeResponse.err == nil && len(ocrResponse.reply) < longOCRMessageThreshold {
-				// If there's both OCR and a description, and the OCR text is less than the cutoff
-				// then display both
-				reply := fmt.Sprintf("%s. It contains the text: %s", describeResponse.reply, ocrResponse.reply)
-				mergedResponses[i] = mediaResponse{index: i, responseType: mergedOCRVisionResponse, reply: reply}
-			} else if ocrResponse.err == nil {
-				mergedResponses[i] = ocrResponse
-			} else {
-				mergedResponses[i] = describeResponse
-			}
+	mergedResponses := make([]mediaResponse, len(mediaTweet.Media))
+	for i := 0; i < len(mediaTweet.Media); i++ {
+		altTextResponse := altTextResponses[i]
+		ocrResponse := ocrResponses[i]
+		describeResponse := describeResponses[i]
+
+		if altTextResponse.responseType == doNothingResponse && ocrResponse.responseType == doNothingResponse && describeResponse.responseType == doNothingResponse {
+			// The media item isn't a photo. Ignore it
+			mergedResponses[i] = altTextResponse
+		} else if altTextResponse.err == nil && altTextResponse.responseType == foundAltTextResponse {
+			// Prefer the user's caption if it exist
+			mergedResponses[i] = altTextResponse
+		} else if ocrResponse.err == nil && describeResponse.err == nil && len(ocrResponse.reply) < longOCRMessageThreshold {
+			// If there's both OCR and a description, and the OCR text is less than the cutoff
+			// then display both
+			reply := replier.CombineDescriptionAndOCR(language.English, describeResponse.reply, ocrResponse.reply)
+			mergedResponses[i] = mediaResponse{index: i, responseType: mergedOCRVisionResponse, reply: reply}
+		} else if ocrResponse.err == nil {
+			mergedResponses[i] = ocrResponse
+		} else {
+			mergedResponses[i] = describeResponse
 		}
-		mergedResponses = removeDoNothings(mergedResponses)
-		replies := extractReplies(mergedResponses, func(response mediaResponse) string {
-			err = response.err
-			reply := response.reply
-			if reply == "" {
-				reply = "I encountered difficulties interpreting the image. Sorry!"
-			}
-			return reply
-		})
-		sendErr := sendReplies(ctx, state.client, tweet, replies)
-		if err == nil {
-			err = sendErr
-		}
-	} else {
-		sendReplyForBadMedia(ctx, state.client, tweet, err)
 	}
-	out := make(chan common.ActivityResult, 1)
-	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with auto response"}
-	close(out)
-	return out
+	return mergedResponses
 }

@@ -106,7 +106,7 @@ func TestHandleDescribe(t *testing.T) {
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8},
 			azureErr:    errors.New("Lock the taskbar, lock the taskbar"),
-			messages:    []string{"I encountered difficulties interpreting the image. Sorry!"},
+			messages:    []string{"I'm at a loss for words, sorry!"},
 			hasErr:      true,
 		},
 		{
@@ -146,7 +146,7 @@ func TestHandleDescribe(t *testing.T) {
 			ctx = setDescribeState(ctx, &state)
 			ctx, err := replier.WithReplier(ctx, &mockTwitter)
 			assert.NoError(t, err)
-			result := <-HandleDescribe(ctx, test.tweet)
+			result := HandleDescribe(ctx, test.tweet)
 			if test.hasErr {
 				assert.Error(t, result.Err)
 			} else {

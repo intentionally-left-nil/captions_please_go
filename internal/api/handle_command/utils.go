@@ -2,13 +2,15 @@ package handle_command
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/language"
 )
 
 type mediaResponseType int
@@ -25,34 +27,65 @@ const (
 type mediaResponse struct {
 	index        int
 	responseType mediaResponseType
-	reply        string
-	err          error
+	reply        replier.Localized
+	err          structured_error.StructuredError
 }
 
-func sendReplyForBadMedia(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, err error) {
-	reply := ""
-	// TODO remove once everything is structured
-	sErr := structured_error.Wrap(err, structured_error.Unknown)
-	switch sErr.Type() {
-	case structured_error.NoPhotosFound:
-		reply = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
-	case structured_error.WrongMediaType:
-		reply = "I only know how to interpret photos right now, sorry!"
-	default:
-		reply = "My joints are freezing up! Hey @TheOtherAnil can you please fix me?"
+func combineAndSendResponses(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, getResponses func(context.Context, *twitter.Tweet, *twitter.Tweet) []mediaResponse) common.ActivityResult {
+	mediaTweet, err := findTweetWithMedia(ctx, client, tweet)
+	tweetToReplyTo := tweet
+	if err == nil {
+		responses := getResponses(ctx, tweet, mediaTweet)
+		combined := combineResponses(responses)
+		result := replier.Reply(ctx, tweet, combined)
+		if result.Err == nil {
+			return common.ActivityResult{Tweet: tweet, Err: combinedError(responses)}
+		}
+		err = result.Err
+		tweetToReplyTo = result.ParentTweet
 	}
-	sendReplies(ctx, client, tweet, []string{reply})
-	// Drop the error as we're already handling an error. This is just best-effort
+	replyWithError(ctx, tweetToReplyTo, err)
+	return common.ActivityResult{Tweet: tweet, Err: err}
 }
 
-func sendReplies(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, replies []string) error {
-	reply := strings.Join(replies, "\n")
-	result := replier.Reply(ctx, tweet, replier.Unlocalized(reply))
-
-	if result.Err != nil {
-		logrus.Info(fmt.Sprintf("Failed to send response %s to tweet %s with error %v", reply, tweet.Id, result.Err))
+func combinedError(responses []mediaResponse) structured_error.StructuredError {
+	for _, response := range responses {
+		if response.err != nil {
+			return response.err
+		}
 	}
-	return result.Err
+	return nil
+}
+
+func combineResponses(responses []mediaResponse) (message replier.Localized) {
+	responses = removeDoNothings(responses)
+	if len(responses) == 0 {
+		responses = []mediaResponse{{err: structured_error.Wrap(errors.New("nothing to do when sending replies"), structured_error.NoPhotosFound)}}
+	}
+
+	replies := make([]replier.Localized, len(responses))
+	for i, response := range responses {
+		var reply replier.Localized
+		if response.err != nil {
+			reply = replier.ErrorMessage(response.err, language.English)
+		} else {
+			reply = response.reply
+		}
+
+		if len(responses) > 1 {
+			reply = replier.LabelImage(language.English, reply, response.index)
+		}
+		replies[i] = reply
+	}
+	return replier.CombineMessages(replies, "\n")
+}
+
+func replyWithError(ctx context.Context, tweet *twitter.Tweet, err structured_error.StructuredError) {
+	message := replier.ErrorMessage(err, language.English)
+	errResult := replier.Reply(ctx, tweet, message)
+	if errResult.Err != nil {
+		logrus.Info(fmt.Sprintf("%s Tried to reply with %v but there was an error %v", tweet.Id, message, errResult.Err))
+	}
 }
 
 func removeDoNothings(responses []mediaResponse) []mediaResponse {
@@ -63,22 +96,4 @@ func removeDoNothings(responses []mediaResponse) []mediaResponse {
 		}
 	}
 	return filtered
-}
-
-func extractReplies(responses []mediaResponse, handleErr func(response mediaResponse) string) []string {
-	replies := make([]string, len(responses))
-	for i, response := range responses {
-		if response.err == nil {
-			replies[i] = response.reply
-		} else {
-			replies[i] = handleErr(response)
-		}
-
-		if len(responses) > 1 {
-			// Pesky humans are 1-indexed
-			// Make sure to preserve the original media index, as some media could be filtered out
-			replies[i] = fmt.Sprintf("Image %d: %s", response.index+1, replies[i])
-		}
-	}
-	return replies
 }

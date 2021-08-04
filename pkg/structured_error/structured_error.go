@@ -9,7 +9,8 @@ const (
 	DuplicateTweet
 	WrongMediaType
 	NoPhotosFound
-	NoHighConfidenceResults
+	OCRError
+	DescribeError
 	Unknown
 )
 

@@ -58,7 +58,7 @@ func TestHandleHelp(t *testing.T) {
 			assert.NoError(t, err)
 
 			tweet := &twitter.Tweet{Id: "0"}
-			result := <-Help(ctx, tweet)
+			result := Help(ctx, tweet)
 			assert.Equal(t, common.ActivityResult{Tweet: tweet, Action: "reply with help"}, result)
 			assert.Equal(t, len(test.expected), tweetId)
 		})

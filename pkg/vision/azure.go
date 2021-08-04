@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v3.1/computervision"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/sirupsen/logrus"
@@ -20,7 +21,7 @@ func NewAzureVision(computerVisionKey string) Describer {
 	return &azure{client: client}
 }
 
-func (a *azure) Describe(url string) ([]VisionResult, error) {
+func (a *azure) Describe(url string) ([]VisionResult, structured_error.StructuredError) {
 	var result []VisionResult
 	ctx := context.Background()
 	imageURL := computervision.ImageURL{URL: &url}
@@ -38,10 +39,10 @@ func (a *azure) Describe(url string) ([]VisionResult, error) {
 	} else {
 		logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
 	}
-	return result, err
+	return result, structured_error.Wrap(err, structured_error.DescribeError)
 }
 
-func (a *azure) GetOCR(url string) (*OCRResult, error) {
+func (a *azure) GetOCR(url string) (*OCRResult, structured_error.StructuredError) {
 	var ocr *OCRResult
 	ctx := context.Background()
 	imageURL := computervision.ImageURL{URL: &url}
@@ -66,5 +67,5 @@ func (a *azure) GetOCR(url string) (*OCRResult, error) {
 			Language: OCRLanguage{Code: language, Confidence: 1.0},
 		}
 	}
-	return ocr, err
+	return ocr, structured_error.Wrap(err, structured_error.OCRError)
 }

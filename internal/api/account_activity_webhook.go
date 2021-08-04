@@ -62,9 +62,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 				logrus.Debug(fmt.Sprintf("Initializing Activity worker %d", i))
 				for job := range state.jobs {
 					logrus.Debug(fmt.Sprintf("Worker %d processing job %s", i, job.Tweet.Id))
-					for result := range handleNewTweetActivity(ctx, job) {
-						job.Out <- result
-					}
+					job.Out <- handleNewTweetActivity(ctx, job)
 					close(job.Out)
 				}
 			}(i)
@@ -162,16 +160,11 @@ func getActivityState(ctx context.Context) *activityState {
 	return ctx.Value(theActivityStateKey).(*activityState)
 }
 
-func handleNewTweetActivity(ctx context.Context, job common.ActivityJob) <-chan common.ActivityResult {
+func handleNewTweetActivity(ctx context.Context, job common.ActivityJob) common.ActivityResult {
 	botMention := getVisibleMention(job.BotId, job.Tweet)
 	if botMention == nil || job.Tweet.User.Id == job.BotId {
 		result := common.ActivityResult{Action: "User didnt mention us. Ignoring"}
-		out := make(chan common.ActivityResult)
-		go func() {
-			out <- result
-			close(out)
-		}()
-		return out
+		return result
 	}
 	command := getCommand(job.Tweet, botMention)
 	return handle_command.Command(ctx, command, job)

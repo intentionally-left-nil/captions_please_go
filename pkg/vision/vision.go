@@ -3,6 +3,7 @@ package vision
 import (
 	"encoding/json"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,12 +23,12 @@ type VisionResult struct {
 }
 
 type OCR interface {
-	GetOCR(url string) (*OCRResult, error)
+	GetOCR(url string) (*OCRResult, structured_error.StructuredError)
 	Close() error
 }
 
 type Describer interface {
-	Describe(url string) ([]VisionResult, error)
+	Describe(url string) ([]VisionResult, structured_error.StructuredError)
 }
 
 func logDebugJSON(v interface{}) {

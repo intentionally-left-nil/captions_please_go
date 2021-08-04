@@ -87,7 +87,7 @@ func TestHandleAuto(t *testing.T) {
 			googleErr:   errors.New("dont be evil amiright"),
 			azureErr:    errors.New("did you try bing instead"),
 			confidences: []float32{0.8, 0.7},
-			messages:    []string{"I encountered difficulties interpreting the image. Sorry!"},
+			messages:    []string{"I'm at a loss for words, sorry!"},
 			hasErr:      true,
 		},
 		{
@@ -144,7 +144,7 @@ func TestHandleAuto(t *testing.T) {
 			ctx, err := replier.WithReplier(ctx, &mockTwitter)
 			assert.NoError(t, err)
 
-			result := <-HandleAuto(ctx, test.tweet)
+			result := HandleAuto(ctx, test.tweet)
 			if test.hasErr {
 				assert.Error(t, result.Err)
 			} else {

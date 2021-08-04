@@ -84,7 +84,7 @@ func TestHandleAltText(t *testing.T) {
 		{
 			name:     "Errors when sending the reply",
 			tweet:    &tweetWithAltText,
-			messages: []string{altText},
+			messages: []string{altText, "My joints are freezing up! Hey @TheOtherAnil can you please fix me?"},
 			replyErr: errors.New("failwhale"),
 			hasErr:   true,
 		},
@@ -106,7 +106,7 @@ func TestHandleAltText(t *testing.T) {
 			ctx = WithAltText(ctx, mockTwitter)
 			ctx, err := replier.WithReplier(ctx, mockTwitter)
 			assert.NoError(t, err)
-			result := <-HandleAltText(ctx, test.tweet)
+			result := HandleAltText(ctx, test.tweet)
 
 			assert.Equal(t, len(test.messages), messageIndex)
 			if test.hasErr {

@@ -3,6 +3,7 @@ package vision_test
 import (
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	"github.com/stretchr/testify/assert"
 )
@@ -40,9 +41,10 @@ type MockGoogle struct {
 	GetOCRMock func(url string) (result *vision.OCRResult, err error)
 }
 
-func (g *MockGoogle) GetOCR(url string) (*vision.OCRResult, error) {
+func (g *MockGoogle) GetOCR(url string) (*vision.OCRResult, structured_error.StructuredError) {
 	assert.NotNil(g.T, g.GetOCRMock)
-	return g.GetOCRMock(url)
+	result, err := g.GetOCRMock(url)
+	return result, structured_error.Wrap(err, structured_error.OCRError)
 }
 
 func (g *MockGoogle) Close() error {

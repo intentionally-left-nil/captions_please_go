@@ -13,37 +13,13 @@ func TestLoadMessages(t *testing.T) {
 	assert.NoError(t, loadMessages())
 }
 
-func TestSimpleErrors(t *testing.T) {
-	tests := []struct {
-		name     string
-		fn       func(language.Tag) localized
-		enResult localized
-	}{
-		{
-			name:     "UnknownError",
-			fn:       UnknownError,
-			enResult: unknownErrorFormat,
-		},
-		{
-			name:     "CannotRespondError",
-			fn:       CannotRespondError,
-			enResult: cannotRespondErrorFormat,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			tag := language.AmericanEnglish
-			assert.Equal(t, test.enResult, test.fn(tag))
-		})
-	}
-}
-
 func TestGetErrorMessage(t *testing.T) {
+	assert.NoError(t, loadMessages())
 	anError := errors.New("oh no")
 	tests := []struct {
 		name     string
 		err      structured_error.StructuredError
-		enResult localized
+		enResult Localized
 	}{
 		{
 			name:     "Defaults to an unknown error",
@@ -54,7 +30,13 @@ func TestGetErrorMessage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.enResult, GetErrorMessage(test.err, language.AmericanEnglish))
+			assert.Equal(t, test.enResult, ErrorMessage(test.err, language.AmericanEnglish))
 		})
 	}
+}
+
+func TestLabelImage(t *testing.T) {
+	assert.NoError(t, loadMessages())
+	assert.Equal(t, Localized("Image 1: foo"), LabelImage(language.AmericanEnglish, Unlocalized("foo"), 0))
+	assert.Equal(t, Localized("Image 2: foo"), LabelImage(language.AmericanEnglish, Unlocalized("foo"), 1))
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	vision "cloud.google.com/go/vision/apiv1"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	pb "google.golang.org/genproto/googleapis/cloud/vision/v1"
@@ -42,7 +43,7 @@ func NewGoogleVision(privateKeyId string, privateKey string) (OCR, error) {
 	return ocr, err
 }
 
-func (g *google) GetOCR(url string) (*OCRResult, error) {
+func (g *google) GetOCR(url string) (*OCRResult, structured_error.StructuredError) {
 	var result *OCRResult
 	image := vision.NewImageFromURI(url)
 	ctx := context.Background()
@@ -54,7 +55,7 @@ func (g *google) GetOCR(url string) (*OCRResult, error) {
 		language := getLanguage(annotations.Pages)
 		result = &OCRResult{Text: text, Language: language}
 	}
-	return result, err
+	return result, structured_error.Wrap(err, structured_error.OCRError)
 }
 func (g *google) Close() error {
 	return g.client.Close()

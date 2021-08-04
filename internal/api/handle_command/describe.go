@@ -8,9 +8,11 @@ import (
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
+	"golang.org/x/text/language"
 )
 
 type describeKey int
@@ -25,7 +27,7 @@ type describeState struct {
 type visionJobResult struct {
 	index   int
 	results []vision.VisionResult
-	err     error
+	err     structured_error.StructuredError
 }
 
 const lowVisionConfidenceCutoff = 0.25
@@ -48,33 +50,11 @@ func getDescriberState(ctx context.Context) *describeState {
 	return ctx.Value(theDescribeKey).(*describeState)
 }
 
-func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
+func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	state := getDescriberState(ctx)
-	var err error
-	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
-	if err == nil {
-		responses := getDescribeMediaResponse(ctx, tweet, mediaTweet)
-		responses = removeDoNothings(responses)
-
-		replies := extractReplies(responses, func(response mediaResponse) string {
-			err = response.err
-			reply := response.reply
-			if reply == "" {
-				reply = "I encountered difficulties interpreting the image. Sorry!"
-			}
-			return reply
-		})
-		sendErr := sendReplies(ctx, state.client, tweet, replies)
-		if err == nil {
-			err = sendErr
-		}
-	} else {
-		sendReplyForBadMedia(ctx, state.client, tweet, err)
-	}
-	out := make(chan common.ActivityResult, 1)
-	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with description"}
-	close(out)
-	return out
+	response := combineAndSendResponses(ctx, state.client, tweet, getDescribeMediaResponse)
+	response.Action = "reply with description"
+	return response
 }
 
 func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
@@ -111,41 +91,32 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		if jobResult.err == nil {
 			reply, err := formatVisionReply(jobResult.results)
 			response = mediaResponse{index: i, responseType: foundVisionResponse, reply: reply, err: err}
+		} else if jobResult.err.Type() == structured_error.WrongMediaType {
+			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
-			// TODO remove wrapping once this is converted to a structured error
-			sErr := structured_error.Wrap(jobResult.err, structured_error.Unknown)
-			if sErr.Type() == structured_error.WrongMediaType {
-				response = mediaResponse{index: i, responseType: doNothingResponse}
-			} else {
-				response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
+			response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
 
-			}
 		}
-
 		responses[i] = response
 	}
 	return responses
 }
 
-func formatVisionReply(visionResults []vision.VisionResult) (string, structured_error.StructuredError) {
+func formatVisionReply(visionResults []vision.VisionResult) (replier.Localized, structured_error.StructuredError) {
+	var localized replier.Localized
 	var err structured_error.StructuredError = nil
-	filteredResults := make([]vision.VisionResult, 0, len(visionResults))
+	filteredResults := make([]string, 0, len(visionResults))
 	for i, visionResult := range visionResults {
 		if i > 2 || visionResult.Confidence < lowVisionConfidenceCutoff {
 			break
 		}
-		filteredResults = append(filteredResults, visionResult)
+		filteredResults = append(filteredResults, visionResult.Text)
 	}
 
-	reply := ""
 	if len(filteredResults) == 0 {
-		reply = "I'm at a loss for words, sorry!"
-		err = structured_error.Wrap(fmt.Errorf("there were %d results, but none were high-confidence", len(visionResults)), structured_error.NoHighConfidenceResults)
+		err = structured_error.Wrap(fmt.Errorf("there were %d results, but none were high-confidence", len(visionResults)), structured_error.DescribeError)
 	} else {
-		reply = filteredResults[0].Text
-		for _, result := range filteredResults[1:] {
-			reply = reply + ". It might also be " + result.Text
-		}
+		localized = replier.CombineDescriptions(language.English, filteredResults)
 	}
-	return reply, err
+	return localized, err
 }

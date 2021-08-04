@@ -2,10 +2,11 @@ package handle_command
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"golang.org/x/text/language"
 )
 
 type altTextKey int
@@ -23,22 +24,11 @@ func WithAltText(ctx context.Context, client twitter.Twitter) context.Context {
 	return context.WithValue(ctx, theAltTextKey, state)
 }
 
-func HandleAltText(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
-	var err error
+func HandleAltText(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	state := getAltTextState(ctx)
-	mediaTweet, err := findTweetWithMedia(ctx, state.client, tweet)
-	if err == nil {
-		responses := getAltTextMediaResponse(ctx, tweet, mediaTweet)
-		responses = removeDoNothings(responses)
-		replies := extractReplies(responses, nil) // alt text doesn't produce errorss
-		err = sendReplies(ctx, state.client, tweet, replies)
-	} else {
-		sendReplyForBadMedia(ctx, state.client, tweet, err)
-	}
-	out := make(chan common.ActivityResult, 1)
-	out <- common.ActivityResult{Tweet: tweet, Err: err, Action: "reply with alt text"}
-	close(out)
-	return out
+	response := combineAndSendResponses(ctx, state.client, tweet, getAltTextMediaResponse)
+	response.Action = "reply with alt text"
+	return response
 }
 
 func getAltTextMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
@@ -46,9 +36,9 @@ func getAltTextMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTwe
 	for i, media := range mediaTweet.Media {
 		var response mediaResponse
 		if media.AltText != nil {
-			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: *media.AltText}
+			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: replier.Unlocalized(*media.AltText)}
 		} else if media.Type == "photo" {
-			reply := fmt.Sprintf("%s didn't provide any alt text when posting the image", tweet.User.Display)
+			reply := replier.NoAltText(language.English, mediaTweet.User.Display)
 			response = mediaResponse{index: i, responseType: missingAltTextResponse, reply: reply}
 		} else {
 			response = mediaResponse{index: i, responseType: doNothingResponse}

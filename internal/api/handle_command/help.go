@@ -11,14 +11,10 @@ import (
 	"golang.org/x/text/language"
 )
 
-func Help(ctx context.Context, tweet *twitter.Tweet) <-chan common.ActivityResult {
+func Help(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	result := replier.Reply(ctx, tweet, replier.HelpMessage(language.English))
 	if result.Err != nil {
 		logrus.Info(fmt.Sprintf("%s: Replying with the help message failed with %v", tweet.Id, result.Err))
 	}
-	out := make(chan common.ActivityResult, 1)
-	// Just drop help messages on the floor if there's an error. Never return an error upstream
-	out <- common.ActivityResult{Tweet: tweet, Action: "reply with help"}
-	close(out)
-	return out
+	return common.ActivityResult{Tweet: tweet, Action: "reply with help"}
 }

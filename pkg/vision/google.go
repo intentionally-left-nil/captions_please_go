@@ -3,6 +3,7 @@ package vision
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -47,8 +48,11 @@ func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured
 	var result *OCRResult
 	image := vision.NewImageFromURI(url)
 	annotations, err := g.client.DetectDocumentText(ctx, image, nil)
+	if annotations == nil && err == nil {
+		err = errors.New("no results")
+	}
 	annotationsJSON, _ := json.Marshal(annotations)
-	logrus.Debug(fmt.Sprintf("Google annotations\n%v\n", string(annotationsJSON)))
+	logrus.Debug(fmt.Sprintf("Google annotations\n%v\nerr: %v", string(annotationsJSON), err))
 	if err == nil {
 		text := getText(annotations.Pages)
 		language := getLanguage(annotations.Pages)
@@ -58,33 +62,6 @@ func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured
 }
 func (g *google) Close() error {
 	return g.client.Close()
-}
-
-func GoogleOCR(privateKeyId string, privateKey string, url string) (*pb.TextAnnotation, error) {
-	credentials := map[string]string{
-		"type":                        "service_account",
-		"project_id":                  "captions-please-ocr",
-		"private_key_id":              privateKeyId,
-		"private_key":                 privateKey,
-		"client_email":                "captions-please@captions-please-ocr.iam.gserviceaccount.com",
-		"client_id":                   "101126542430586578005",
-		"auth_uri":                    "https://accounts.google.com/o/oauth2/auth",
-		"token_uri":                   "https://oauth2.googleapis.com/token",
-		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-		"client_x509_cert_url":        "https://www.googleapis.com/robot/v1/metadata/x509/captions-please%40captions-please-ocr.iam.gserviceaccount.com",
-	}
-	credentialsJSON, err := json.Marshal(credentials)
-	if err == nil {
-		ctx := context.Background()
-		var client *vision.ImageAnnotatorClient
-		client, err = vision.NewImageAnnotatorClient(ctx, option.WithCredentialsJSON(credentialsJSON))
-		if err == nil {
-			defer client.Close()
-			image := vision.NewImageFromURI(url)
-			return client.DetectDocumentText(ctx, image, nil)
-		}
-	}
-	return nil, err
 }
 
 func getLanguage(pages []*pb.Page) OCRLanguage {

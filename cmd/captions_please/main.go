@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +29,8 @@ func main() {
 			}
 			return nil
 		},
+		Writer:    io.Discard,
+		ErrWriter: io.Discard,
 	}
 	app.Run(os.Args)
 	ctx, err := common.WithSecrets(context.Background())

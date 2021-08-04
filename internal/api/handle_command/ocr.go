@@ -65,7 +65,7 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 			if media.Type != "photo" {
 				err = structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)
 			} else {
-				ocrResult, err = state.google.GetOCR(media.Url)
+				ocrResult, err = state.google.GetOCR(ctx, media.Url)
 
 			}
 			jobs <- ocrJobResult{index: i, ocr: ocrResult, err: err}

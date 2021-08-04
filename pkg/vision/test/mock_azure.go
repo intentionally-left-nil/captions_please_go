@@ -1,6 +1,7 @@
 package vision_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -13,7 +14,7 @@ type MockAzure struct {
 	DescribeMock func(url string) ([]vision.VisionResult, error)
 }
 
-func (a *MockAzure) Describe(url string) ([]vision.VisionResult, structured_error.StructuredError) {
+func (a *MockAzure) Describe(ctx context.Context, url string) ([]vision.VisionResult, structured_error.StructuredError) {
 	assert.NotNil(a.T, a.DescribeMock)
 	result, err := a.DescribeMock(url)
 	return result, structured_error.Wrap(err, structured_error.DescribeError)

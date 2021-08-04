@@ -17,15 +17,14 @@ type messageCtxKey int
 const theMessageKey messageCtxKey = 0
 
 func WithLanguage(ctx context.Context, tag language.Tag) context.Context {
-	return context.WithValue(ctx, theMessageKey, &tag)
+	return context.WithValue(ctx, theMessageKey, tag)
 }
 
 func GetLanguage(ctx context.Context) language.Tag {
-	tag := ctx.Value(theMessageKey).(*language.Tag)
-	if tag == nil {
-		return language.English
+	if tag, ok := ctx.Value(theMessageKey).(language.Tag); ok {
+		return tag
 	}
-	return *tag
+	return language.English
 }
 
 func loadMessages() error {

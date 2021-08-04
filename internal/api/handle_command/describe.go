@@ -67,7 +67,7 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		media := media
 		go func() {
 			if media.Type == "photo" {
-				visionResult, err := state.describer.Describe(media.Url)
+				visionResult, err := state.describer.Describe(ctx, media.Url)
 				jobs <- visionJobResult{index: i, results: visionResult, err: err}
 			} else {
 				jobs <- visionJobResult{index: i, err: structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)}

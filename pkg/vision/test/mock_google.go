@@ -1,6 +1,7 @@
 package vision_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -41,7 +42,7 @@ type MockGoogle struct {
 	GetOCRMock func(url string) (result *vision.OCRResult, err error)
 }
 
-func (g *MockGoogle) GetOCR(url string) (*vision.OCRResult, structured_error.StructuredError) {
+func (g *MockGoogle) GetOCR(ctx context.Context, url string) (*vision.OCRResult, structured_error.StructuredError) {
 	assert.NotNil(g.T, g.GetOCRMock)
 	result, err := g.GetOCRMock(url)
 	return result, structured_error.Wrap(err, structured_error.OCRError)

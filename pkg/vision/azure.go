@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v3.1/computervision"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/language"
 )
 
 type azure struct {
@@ -21,11 +23,21 @@ func NewAzureVision(computerVisionKey string) Describer {
 	return &azure{client: client}
 }
 
-func (a *azure) Describe(url string) ([]VisionResult, structured_error.StructuredError) {
+var languageMapping = map[language.Tag]string{
+	language.Spanish:    "es",
+	language.Japanese:   "ja",
+	language.Portuguese: "pt",
+}
+
+func (a *azure) Describe(ctx context.Context, url string) ([]VisionResult, structured_error.StructuredError) {
 	var result []VisionResult
-	ctx := context.Background()
 	imageURL := computervision.ImageURL{URL: &url}
-	description, err := a.client.DescribeImage(ctx, imageURL, nil, "en", nil)
+	var language string
+	var ok bool
+	if language, ok = languageMapping[replier.GetLanguage(ctx)]; !ok {
+		language = "en"
+	}
+	description, err := a.client.DescribeImage(ctx, imageURL, nil, language, nil)
 	logDebugJSON(description)
 	if err == nil && description.Captions != nil {
 		result = make([]VisionResult, 0, len(*description.Captions))
@@ -42,9 +54,8 @@ func (a *azure) Describe(url string) ([]VisionResult, structured_error.Structure
 	return result, structured_error.Wrap(err, structured_error.DescribeError)
 }
 
-func (a *azure) GetOCR(url string) (*OCRResult, structured_error.StructuredError) {
+func (a *azure) GetOCR(ctx context.Context, url string) (*OCRResult, structured_error.StructuredError) {
 	var ocr *OCRResult
-	ctx := context.Background()
 	imageURL := computervision.ImageURL{URL: &url}
 	result, err := a.client.RecognizePrintedText(ctx, true, imageURL, computervision.OcrLanguagesUnk)
 	builder := strings.Builder{}

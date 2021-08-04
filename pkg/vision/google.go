@@ -43,10 +43,9 @@ func NewGoogleVision(privateKeyId string, privateKey string) (OCR, error) {
 	return ocr, err
 }
 
-func (g *google) GetOCR(url string) (*OCRResult, structured_error.StructuredError) {
+func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured_error.StructuredError) {
 	var result *OCRResult
 	image := vision.NewImageFromURI(url)
-	ctx := context.Background()
 	annotations, err := g.client.DetectDocumentText(ctx, image, nil)
 	annotationsJSON, _ := json.Marshal(annotations)
 	logrus.Debug(fmt.Sprintf("Google annotations\n%v\n", string(annotationsJSON)))

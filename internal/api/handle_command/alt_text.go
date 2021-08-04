@@ -6,7 +6,6 @@ import (
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
-	"golang.org/x/text/language"
 )
 
 type altTextKey int
@@ -38,7 +37,7 @@ func getAltTextMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTwe
 		if media.AltText != nil {
 			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: replier.Unlocalized(*media.AltText)}
 		} else if media.Type == "photo" {
-			reply := replier.NoAltText(language.English, mediaTweet.User.Display)
+			reply := replier.NoAltText(ctx, mediaTweet.User.Display)
 			response = mediaResponse{index: i, responseType: missingAltTextResponse, reply: reply}
 		} else {
 			response = mediaResponse{index: i, responseType: doNothingResponse}

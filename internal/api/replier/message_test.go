@@ -1,12 +1,12 @@
 package replier
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/text/language"
 )
 
 func TestLoadMessages(t *testing.T) {
@@ -30,13 +30,13 @@ func TestGetErrorMessage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.enResult, ErrorMessage(test.err, language.AmericanEnglish))
+			assert.Equal(t, test.enResult, ErrorMessage(context.Background(), test.err))
 		})
 	}
 }
 
 func TestLabelImage(t *testing.T) {
 	assert.NoError(t, loadMessages())
-	assert.Equal(t, Localized("Image 1: foo"), LabelImage(language.AmericanEnglish, Unlocalized("foo"), 0))
-	assert.Equal(t, Localized("Image 2: foo"), LabelImage(language.AmericanEnglish, Unlocalized("foo"), 1))
+	assert.Equal(t, Localized("Image 1: foo"), LabelImage(context.Background(), Unlocalized("foo"), 0))
+	assert.Equal(t, Localized("Image 2: foo"), LabelImage(context.Background(), Unlocalized("foo"), 1))
 }

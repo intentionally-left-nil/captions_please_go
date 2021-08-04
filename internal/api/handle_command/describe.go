@@ -12,7 +12,6 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
-	"golang.org/x/text/language"
 )
 
 type describeKey int
@@ -89,7 +88,7 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
-			reply, err := formatVisionReply(jobResult.results)
+			reply, err := formatVisionReply(ctx, jobResult.results)
 			response = mediaResponse{index: i, responseType: foundVisionResponse, reply: reply, err: err}
 		} else if jobResult.err.Type() == structured_error.WrongMediaType {
 			response = mediaResponse{index: i, responseType: doNothingResponse}
@@ -102,7 +101,7 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 	return responses
 }
 
-func formatVisionReply(visionResults []vision.VisionResult) (replier.Localized, structured_error.StructuredError) {
+func formatVisionReply(ctx context.Context, visionResults []vision.VisionResult) (replier.Localized, structured_error.StructuredError) {
 	var localized replier.Localized
 	var err structured_error.StructuredError = nil
 	filteredResults := make([]string, 0, len(visionResults))
@@ -116,7 +115,7 @@ func formatVisionReply(visionResults []vision.VisionResult) (replier.Localized, 
 	if len(filteredResults) == 0 {
 		err = structured_error.Wrap(fmt.Errorf("there were %d results, but none were high-confidence", len(visionResults)), structured_error.DescribeError)
 	} else {
-		localized = replier.CombineDescriptions(language.English, filteredResults)
+		localized = replier.CombineDescriptions(ctx, filteredResults)
 	}
 	return localized, err
 }

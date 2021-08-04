@@ -1,6 +1,7 @@
 package replier
 
 import (
+	"context"
 	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -10,6 +11,22 @@ import (
 )
 
 type Localized string
+
+type messageCtxKey int
+
+const theMessageKey messageCtxKey = 0
+
+func WithLanguage(ctx context.Context, tag language.Tag) context.Context {
+	return context.WithValue(ctx, theMessageKey, &tag)
+}
+
+func GetLanguage(ctx context.Context) language.Tag {
+	tag := ctx.Value(theMessageKey).(*language.Tag)
+	if tag == nil {
+		return language.English
+	}
+	return *tag
+}
 
 func loadMessages() error {
 	var err error
@@ -61,36 +78,36 @@ var errorMapping map[structured_error.ErrorType]string = map[structured_error.Er
 	structured_error.DescribeError:      noDescriptionsFormat,
 }
 
-func ErrorMessage(err structured_error.StructuredError, tag language.Tag) Localized {
+func ErrorMessage(ctx context.Context, err structured_error.StructuredError) Localized {
 	format, ok := errorMapping[err.Type()]
 	if !ok {
 		format = unknownErrorFormat
 	}
-	return sprint(tag, format)
+	return sprint(ctx, format)
 }
 
-func HelpMessage(tag language.Tag) Localized {
+func HelpMessage(ctx context.Context) Localized {
 	lines := [][]string{
 		{altTextCommandFormat, altTextUsageFormat},
 		{ocrCommandFormat, ocrUsageFormat},
 		{describeCommandFormat, describeUsageFormat},
 	}
 	builder := &strings.Builder{}
-	builder.WriteString(string(sprint(tag, helpUsageFormat)))
+	builder.WriteString(string(sprint(ctx, helpUsageFormat)))
 	for _, formats := range lines {
 		builder.WriteString("\n")
-		builder.WriteString(string(sprint(tag, formats[0])))
+		builder.WriteString(string(sprint(ctx, formats[0])))
 		builder.WriteString(":\t")
-		builder.WriteString(string(sprint(tag, formats[1])))
+		builder.WriteString(string(sprint(ctx, formats[1])))
 	}
 	return Localized(builder.String())
 }
 
-func LabelImage(tag language.Tag, description Localized, index int) Localized {
-	return sprintf(tag, imageLabelFormat, index+1, description)
+func LabelImage(ctx context.Context, description Localized, index int) Localized {
+	return sprintf(ctx, imageLabelFormat, index+1, description)
 }
-func NoAltText(tag language.Tag, userDisplayName string) Localized {
-	return sprintf(tag, noAltTextFormat, userDisplayName)
+func NoAltText(ctx context.Context, userDisplayName string) Localized {
+	return sprintf(ctx, noAltTextFormat, userDisplayName)
 }
 
 func CombineMessages(messages []Localized, joiner string) Localized {
@@ -101,21 +118,21 @@ func CombineMessages(messages []Localized, joiner string) Localized {
 	return Localized(strings.Join(asStrings, joiner))
 }
 
-func CombineDescriptions(tag language.Tag, descriptions []string) Localized {
+func CombineDescriptions(ctx context.Context, descriptions []string) Localized {
 	messages := make([]Localized, len(descriptions))
 	for i, description := range descriptions {
 		if i == 0 {
 			messages[i] = Unlocalized(description)
 
 		} else {
-			messages[i] = sprintf(tag, multipleDescriptionsJoinerFormat, description)
+			messages[i] = sprintf(ctx, multipleDescriptionsJoinerFormat, description)
 		}
 	}
 	return CombineMessages(messages, ". ")
 }
 
-func CombineDescriptionAndOCR(tag language.Tag, description Localized, ocr Localized) Localized {
-	messages := []Localized{description, sprintf(tag, combineDescriptionAndOCRFormat, ocr)}
+func CombineDescriptionAndOCR(ctx context.Context, description Localized, ocr Localized) Localized {
+	messages := []Localized{description, sprintf(ctx, combineDescriptionAndOCRFormat, ocr)}
 	return CombineMessages(messages, ". ")
 }
 
@@ -147,10 +164,12 @@ var messages = [...]struct {
 	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
 }
 
-func sprint(tag language.Tag, format string) Localized {
+func sprint(ctx context.Context, format string) Localized {
+	tag := GetLanguage(ctx)
 	return Localized(message.NewPrinter(tag).Sprint(format))
 }
 
-func sprintf(tag language.Tag, format string, args ...interface{}) Localized {
+func sprintf(ctx context.Context, format string, args ...interface{}) Localized {
+	tag := GetLanguage(ctx)
 	return Localized(message.NewPrinter(tag).Sprintf(format, args...))
 }

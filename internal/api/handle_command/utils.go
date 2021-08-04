@@ -10,7 +10,6 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/text/language"
 )
 
 type mediaResponseType int
@@ -36,7 +35,7 @@ func combineAndSendResponses(ctx context.Context, client twitter.Twitter, tweet 
 	tweetToReplyTo := tweet
 	if err == nil {
 		responses := getResponses(ctx, tweet, mediaTweet)
-		combined := combineResponses(responses)
+		combined := combineResponses(ctx, responses)
 		result := replier.Reply(ctx, tweet, combined)
 		if result.Err == nil {
 			return common.ActivityResult{Tweet: tweet, Err: combinedError(responses)}
@@ -57,7 +56,7 @@ func combinedError(responses []mediaResponse) structured_error.StructuredError {
 	return nil
 }
 
-func combineResponses(responses []mediaResponse) (message replier.Localized) {
+func combineResponses(ctx context.Context, responses []mediaResponse) (message replier.Localized) {
 	responses = removeDoNothings(responses)
 	if len(responses) == 0 {
 		responses = []mediaResponse{{err: structured_error.Wrap(errors.New("nothing to do when sending replies"), structured_error.NoPhotosFound)}}
@@ -67,13 +66,13 @@ func combineResponses(responses []mediaResponse) (message replier.Localized) {
 	for i, response := range responses {
 		var reply replier.Localized
 		if response.err != nil {
-			reply = replier.ErrorMessage(response.err, language.English)
+			reply = replier.ErrorMessage(ctx, response.err)
 		} else {
 			reply = response.reply
 		}
 
 		if len(responses) > 1 {
-			reply = replier.LabelImage(language.English, reply, response.index)
+			reply = replier.LabelImage(ctx, reply, response.index)
 		}
 		replies[i] = reply
 	}
@@ -81,7 +80,7 @@ func combineResponses(responses []mediaResponse) (message replier.Localized) {
 }
 
 func replyWithError(ctx context.Context, tweet *twitter.Tweet, err structured_error.StructuredError) {
-	message := replier.ErrorMessage(err, language.English)
+	message := replier.ErrorMessage(ctx, err)
 	errResult := replier.Reply(ctx, tweet, message)
 	if errResult.Err != nil {
 		logrus.Info(fmt.Sprintf("%s Tried to reply with %v but there was an error %v", tweet.Id, message, errResult.Err))

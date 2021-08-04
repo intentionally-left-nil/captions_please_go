@@ -32,7 +32,7 @@ func WebhookStatus(ctx context.Context, req *http.Request) APIResponse {
 	}
 
 	if err == nil {
-		return APIResponse{status: http.StatusOK}
+		return APIResponse{status: http.StatusOK, response: map[string]string{"status": "ok"}}
 	}
 
 	return APIResponse{

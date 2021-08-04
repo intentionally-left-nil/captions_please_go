@@ -54,7 +54,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := func(w http.ResponseWriter, req *http.Request) {
+	webhookHandler := func(w http.ResponseWriter, req *http.Request) {
 		var response api.APIResponse
 		switch req.Method {
 		case http.MethodGet:
@@ -80,7 +80,13 @@ func main() {
 		api.WriteResponse(w, response)
 	}
 
-	http.HandleFunc("/", handler)
+	statusHandler := func(w http.ResponseWriter, req *http.Request) {
+		response := api.WebhookStatus(ctx, req)
+		api.WriteResponse(w, response)
+	}
+
+	http.HandleFunc("/status", statusHandler)
+	http.HandleFunc("/", webhookHandler)
 	log.Printf("captions-please listening at http://localhost:%d\n", PORT)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", PORT), nil))
 }

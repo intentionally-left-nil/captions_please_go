@@ -34,6 +34,7 @@ type Describer interface {
 
 type Translator interface {
 	Translate(ctx context.Context, message string) (string, structured_error.StructuredError)
+	Close() error
 }
 
 func logDebugJSON(v interface{}) {

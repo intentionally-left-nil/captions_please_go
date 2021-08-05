@@ -9,24 +9,40 @@ import (
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	vision_test "github.com/AnilRedshift/captions_please_go/pkg/vision/test"
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/text/language"
 )
 
 func TestWithDescribe(t *testing.T) {
 	defer leaktest.Check(t)()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	secrets := &common.Secrets{AzureComputerVisionKey: "123"}
+	secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert, AzureComputerVisionKey: "123"}
 	ctx = common.SetSecrets(ctx, secrets)
 	mockTwitter := twitter_test.MockTwitter{T: t}
-	ctx = WithDescribe(ctx, &mockTwitter)
+	ctx, err := WithDescribe(ctx, &mockTwitter)
+	assert.NoError(t, err)
 	state := getDescriberState(ctx)
 	assert.NotNil(t, state)
+}
+
+func TestWithDescribeHandlesGoogleFailure(t *testing.T) {
+	defer leaktest.Check(t)()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	secrets := &common.Secrets{GooglePrivateKeySecret: "a bad cert", AzureComputerVisionKey: "123"}
+	ctx = common.SetSecrets(ctx, secrets)
+	mockTwitter := twitter_test.MockTwitter{T: t}
+	_, err := WithDescribe(ctx, &mockTwitter)
+	assert.Error(t, err)
+
 }
 
 func TestHandleDescribe(t *testing.T) {
@@ -44,19 +60,32 @@ func TestHandleDescribe(t *testing.T) {
 	tweetWithTwoPhotos := twitter.Tweet{Id: "withTwoPhotos", User: user, Media: twoPhotos}
 	tweetWithMixedMedia := twitter.Tweet{Id: "withMixedMedia", User: user, Media: mixedMedia}
 	tweetWithOneVideo := twitter.Tweet{Id: "withOneVideo", User: user, Media: oneVideo}
+
+	wrongLangErr := structured_error.Wrap(errors.New("wrong language"), structured_error.UnsupportedLanguage)
+	translateErr := structured_error.Wrap(errors.New("mais non"), structured_error.TranslateError)
 	tests := []struct {
-		name        string
-		tweet       *twitter.Tweet
-		confidences []float32
-		azureErr    error
-		messages    []string
-		hasErr      bool
+		name         string
+		tweet        *twitter.Tweet
+		lang         *language.Tag
+		confidences  []float32
+		azureErr     error
+		translateErr error
+		messages     []string
+		hasErr       bool
 	}{
 		{
 			name:        "Returns a single description",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8},
 			messages:    []string{"photo.jpg is so pretty(0.8)"},
+		},
+		{
+			name:        "Returns a single description in the users language",
+			lang:        &language.Hindi,
+			azureErr:    wrongLangErr,
+			tweet:       &tweetWithOnePhoto,
+			confidences: []float32{0.8},
+			messages:    []string{"<translated photo.jpg is so pretty(0.8) />"},
 		},
 		{
 			name:        "Splits a long description into multiple tweets",
@@ -93,6 +122,16 @@ func TestHandleDescribe(t *testing.T) {
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8, 0.1},
 			messages:    []string{"photo.jpg is so pretty(0.8)"},
+		},
+		{
+			name:         "Returns unsupported error message if translating fails",
+			lang:         &language.Hindi,
+			azureErr:     wrongLangErr,
+			translateErr: translateErr,
+			tweet:        &tweetWithOnePhoto,
+			confidences:  []float32{0.8},
+			messages:     []string{"I'm at a loss for words, sorry!"},
+			hasErr:       true,
 		},
 		{
 			name:        "Returns error message if everything is low-confidence",
@@ -138,13 +177,23 @@ func TestHandleDescribe(t *testing.T) {
 				return results, test.azureErr
 			}}
 
+			mockGoogle := vision_test.MockGoogle{T: t, TranslateMock: func(message string) (string, error) {
+				translated := "<translated " + message + " />"
+				return translated, test.translateErr
+			}}
+
 			state := describeState{
-				client:    &mockTwitter,
-				describer: &mockAzure,
+				client:     &mockTwitter,
+				describer:  &mockAzure,
+				translator: &mockGoogle,
 			}
 
 			ctx = setDescribeState(ctx, &state)
 			ctx, err := replier.WithReplier(ctx, &mockTwitter)
+
+			if test.lang != nil {
+				ctx = message.WithLanguage(ctx, *test.lang)
+			}
 			assert.NoError(t, err)
 			result := HandleDescribe(ctx, test.tweet)
 			if test.hasErr {

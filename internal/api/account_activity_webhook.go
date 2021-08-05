@@ -49,9 +49,11 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
 	ctx = handle_command.WithAltText(ctx, client)
-	ctx = handle_command.WithDescribe(ctx, client)
 	ctx = handle_command.WithAuto(ctx, client)
 	ctx, err = handle_command.WithOCR(ctx, client)
+	if err == nil {
+		ctx, err = handle_command.WithDescribe(ctx, client)
+	}
 	if err == nil {
 		ctx, err = replier.WithReplier(ctx, client)
 	}

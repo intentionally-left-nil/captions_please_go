@@ -12,6 +12,7 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
+	"github.com/sirupsen/logrus"
 )
 
 type describeKey int
@@ -19,8 +20,9 @@ type describeKey int
 const theDescribeKey describeKey = 0
 
 type describeState struct {
-	describer vision.Describer
-	client    twitter.Twitter
+	describer  vision.Describer
+	translator vision.Translator
+	client     twitter.Twitter
 }
 
 type visionJobResult struct {
@@ -31,14 +33,23 @@ type visionJobResult struct {
 
 const lowVisionConfidenceCutoff = 0.25
 
-func WithDescribe(ctx context.Context, client twitter.Twitter) context.Context {
+func WithDescribe(ctx context.Context, client twitter.Twitter) (context.Context, error) {
 	secrets := common.GetSecrets(ctx)
+	translator, err := vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+	if err != nil {
+		return ctx, err
+	}
 	describer := vision.NewAzureVision(secrets.AzureComputerVisionKey)
 	state := describeState{
-		describer: describer,
-		client:    client,
+		describer:  describer,
+		client:     client,
+		translator: translator,
 	}
-	return setDescribeState(ctx, &state)
+	go func() {
+		<-ctx.Done()
+		state.translator.Close()
+	}()
+	return setDescribeState(ctx, &state), err
 }
 
 func setDescribeState(ctx context.Context, state *describeState) context.Context {
@@ -68,6 +79,24 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 		go func() {
 			if media.Type == "photo" {
 				visionResult, err := state.describer.Describe(ctx, media.Url)
+				if err != nil && err.Type() == structured_error.UnsupportedLanguage {
+					logrus.Debug("The results are valid, but in the wrong language. Trying to translate")
+					translatedResult := make([]vision.VisionResult, len(visionResult))
+					for i, result := range visionResult {
+						var translated string
+						translated, err = state.translator.Translate(ctx, result.Text)
+						if err != nil {
+							break
+						}
+						result.Text = translated
+						// range() makes a copy, so we need to store the modifications
+						translatedResult[i] = result
+					}
+
+					if err == nil {
+						visionResult = translatedResult
+					}
+				}
 				jobs <- visionJobResult{index: i, results: visionResult, err: err}
 			} else {
 				jobs <- visionJobResult{index: i, err: structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)}

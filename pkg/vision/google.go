@@ -105,7 +105,12 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (string, str
 				texts[i] = translation.Text
 			}
 			translated = strings.Join(texts, "\n")
+			logrus.Debug(fmt.Sprintf("successfully translated %s into %s", toTranslate, translated))
 		}
+	}
+
+	if err != nil {
+		logrus.Debug(fmt.Sprintf("Translation failed with %v", err))
 	}
 	return translated, structured_error.Wrap(err, structured_error.TranslateError)
 }

@@ -43,23 +43,29 @@ func (a *azure) Describe(ctx context.Context, url string) ([]VisionResult, struc
 	var result []VisionResult
 	var err error
 	imageURL := computervision.ImageURL{URL: &url}
-	tag, err := message.GetCompatibleLanguage(ctx, a.matcher)
-	if err == nil {
-		var description computervision.ImageDescription
-		description, err = a.client.DescribeImage(ctx, imageURL, nil, languageMapping[tag], nil)
-		logDebugJSON(description)
-		if err == nil && description.Captions != nil {
-			result = make([]VisionResult, 0, len(*description.Captions))
-			for i, caption := range *description.Captions {
-				if caption.Confidence != nil && caption.Text != nil {
-					result = result[:len(result)+1]
-					result[i] = VisionResult{Text: *caption.Text, Confidence: float32(*caption.Confidence)}
-				}
+	tag, wrongLangErr := message.GetCompatibleLanguage(ctx, a.matcher)
+	if wrongLangErr != nil {
+		logrus.Debug("Azure cannot produce descriptions in the desired language")
+		tag = language.English
+	}
+	var description computervision.ImageDescription
+	description, err = a.client.DescribeImage(ctx, imageURL, nil, languageMapping[tag], nil)
+	logDebugJSON(description)
+	if err == nil && description.Captions != nil {
+		result = make([]VisionResult, 0, len(*description.Captions))
+		for i, caption := range *description.Captions {
+			if caption.Confidence != nil && caption.Text != nil {
+				result = result[:len(result)+1]
+				result[i] = VisionResult{Text: *caption.Text, Confidence: float32(*caption.Confidence)}
 			}
-			logDebugJSON(result)
-		} else {
-			logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
 		}
+		logDebugJSON(result)
+	} else {
+		logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
+	}
+
+	if err == nil {
+		err = wrongLangErr
 	}
 	return result, structured_error.Wrap(err, structured_error.DescribeError)
 }

@@ -78,6 +78,7 @@ var errorMapping map[structured_error.ErrorType]string = map[structured_error.Er
 	structured_error.WrongMediaType:      wrongMediaFormat,
 	structured_error.DescribeError:       noDescriptionsFormat,
 	structured_error.OCRError:            noDescriptionsFormat,
+	structured_error.TranslateError:      noDescriptionsFormat,
 	structured_error.UnsupportedLanguage: unsupportedLanguageFormat,
 }
 

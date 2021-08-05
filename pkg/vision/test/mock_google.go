@@ -38,14 +38,21 @@ vf2FL8Z20ZOKoy5CJ26qQiT87BwuL+GS7w+HzjYmCL39SE3QzxY+rs4=
 -----END RSA PRIVATE KEY-----`
 
 type MockGoogle struct {
-	T          *testing.T
-	GetOCRMock func(url string) (result *vision.OCRResult, err error)
+	T             *testing.T
+	GetOCRMock    func(url string) (result *vision.OCRResult, err error)
+	TranslateMock func(message string) (string, error)
 }
 
 func (g *MockGoogle) GetOCR(ctx context.Context, url string) (*vision.OCRResult, structured_error.StructuredError) {
 	assert.NotNil(g.T, g.GetOCRMock)
 	result, err := g.GetOCRMock(url)
 	return result, structured_error.Wrap(err, structured_error.OCRError)
+}
+
+func (g *MockGoogle) Translate(ctx context.Context, message string) (string, structured_error.StructuredError) {
+	assert.NotNil(g.T, g.TranslateMock)
+	result, err := g.TranslateMock(message)
+	return result, structured_error.Wrap(err, structured_error.TranslateError)
 }
 
 func (g *MockGoogle) Close() error {

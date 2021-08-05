@@ -55,7 +55,7 @@ func TestHandleOCR(t *testing.T) {
 			name:      "Responds with an error if OCR fails",
 			tweet:     &tweetWithTwoPhotos,
 			googleErr: errors.New("google fired another good engineer now their code is broken"),
-			messages:  []string{"Image 1: My joints are freezing up! Hey @TheOtherAnil can you please fix me?\nImage 2: My joints are freezing up! Hey @TheOtherAnil can you please fix me?"},
+			messages:  []string{"Image 1: I'm at a loss for words, sorry!\nImage 2: I'm at a loss for words, sorry!"},
 			hasErr:    true,
 		},
 		{

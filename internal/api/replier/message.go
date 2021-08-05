@@ -75,6 +75,7 @@ var errorMapping map[structured_error.ErrorType]string = map[structured_error.Er
 	structured_error.NoPhotosFound:      noPhotosFormat,
 	structured_error.WrongMediaType:     wrongMediaFormat,
 	structured_error.DescribeError:      noDescriptionsFormat,
+	structured_error.OCRError:           noDescriptionsFormat,
 }
 
 func ErrorMessage(ctx context.Context, err structured_error.StructuredError) Localized {

@@ -90,9 +90,9 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (string, str
 	var err error
 	g.loadSupportedLanguages(ctx)
 	if g.matcher != nil {
-		desired := message.GetLanguage(ctx)
-		tag, _, confidence := (*g.matcher).Match(desired)
-		if confidence >= language.High {
+		var tag language.Tag
+		tag, err = message.GetCompatibleLanguage(ctx, *g.matcher)
+		if err == nil {
 			var translations []translate.Translation
 			translations, err = g.translateClient.Translate(ctx, []string{toTranslate}, tag, &translate.Options{
 				Format: translate.Text,
@@ -105,8 +105,6 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (string, str
 				texts[i] = translation.Text
 			}
 			translated = strings.Join(texts, "\n")
-		} else {
-			err = structured_error.Wrap(fmt.Errorf("%v has no high confidence matching language", desired), structured_error.UnsupportedLanguage)
 		}
 	}
 	return translated, structured_error.Wrap(err, structured_error.TranslateError)

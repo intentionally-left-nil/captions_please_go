@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -68,14 +69,16 @@ You can customize the response by adding one of the following commands after tag
 	noDescriptionsFormat             = "I'm at a loss for words, sorry!"
 	multipleDescriptionsJoinerFormat = "It might also be %s"
 	combineDescriptionAndOCRFormat   = "It contains the text: %s"
+	unsupportedLanguageFormat        = "I'm unable to support that language right now, sorry!"
 )
 
 var errorMapping map[structured_error.ErrorType]string = map[structured_error.ErrorType]string{
-	structured_error.CannotSplitMessage: cannotRespondErrorFormat,
-	structured_error.NoPhotosFound:      noPhotosFormat,
-	structured_error.WrongMediaType:     wrongMediaFormat,
-	structured_error.DescribeError:      noDescriptionsFormat,
-	structured_error.OCRError:           noDescriptionsFormat,
+	structured_error.CannotSplitMessage:  cannotRespondErrorFormat,
+	structured_error.NoPhotosFound:       noPhotosFormat,
+	structured_error.WrongMediaType:      wrongMediaFormat,
+	structured_error.DescribeError:       noDescriptionsFormat,
+	structured_error.OCRError:            noDescriptionsFormat,
+	structured_error.UnsupportedLanguage: unsupportedLanguageFormat,
 }
 
 func ErrorMessage(ctx context.Context, err structured_error.StructuredError) Localized {
@@ -136,6 +139,19 @@ func CombineDescriptionAndOCR(ctx context.Context, description Localized, ocr Lo
 	return CombineMessages(messages, ". ")
 }
 
+func GetCompatibleLanguage(ctx context.Context, matcher language.Matcher) (language.Tag, structured_error.StructuredError) {
+	tag := language.English
+	var err structured_error.StructuredError = nil
+	desired := GetLanguage(ctx)
+	possibleMatch, _, confidence := matcher.Match(desired)
+	if confidence >= language.High {
+		tag = possibleMatch
+	} else {
+		err = structured_error.Wrap(fmt.Errorf("%v has no high confidence matching language", desired), structured_error.UnsupportedLanguage)
+	}
+	return tag, err
+}
+
 func Unlocalized(message string) Localized {
 	return Localized(message)
 }
@@ -162,6 +178,7 @@ var messages = [...]struct {
 	{"en", noDescriptionsFormat, noDescriptionsFormat},
 	{"en", multipleDescriptionsJoinerFormat, catalog.String("It might also be %[1]s")},
 	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
+	{"en", unsupportedLanguageFormat, unsupportedLanguageFormat},
 }
 
 func sprint(ctx context.Context, format string) Localized {

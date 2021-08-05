@@ -14,42 +14,52 @@ import (
 )
 
 type azure struct {
-	client computervision.BaseClient
+	client  computervision.BaseClient
+	matcher language.Matcher
 }
 
 func NewAzureVision(computerVisionKey string) Describer {
 	client := computervision.New("https://captionspleasecomputervision.cognitiveservices.azure.com")
 	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(computerVisionKey)
-	return &azure{client: client}
+	supportedTags := make([]language.Tag, len(languageMapping))
+	i := 0
+	for tag := range languageMapping {
+		supportedTags[i] = tag
+		i++
+	}
+	matcher := language.NewMatcher(supportedTags)
+	return &azure{client: client, matcher: matcher}
 }
 
 var languageMapping = map[language.Tag]string{
-	language.Spanish:    "es",
-	language.Japanese:   "ja",
-	language.Portuguese: "pt",
+	language.English:           "en",
+	language.Spanish:           "es",
+	language.Japanese:          "ja",
+	language.Portuguese:        "pt",
+	language.SimplifiedChinese: "zh",
 }
 
 func (a *azure) Describe(ctx context.Context, url string) ([]VisionResult, structured_error.StructuredError) {
 	var result []VisionResult
+	var err error
 	imageURL := computervision.ImageURL{URL: &url}
-	var language string
-	var ok bool
-	if language, ok = languageMapping[message.GetLanguage(ctx)]; !ok {
-		language = "en"
-	}
-	description, err := a.client.DescribeImage(ctx, imageURL, nil, language, nil)
-	logDebugJSON(description)
-	if err == nil && description.Captions != nil {
-		result = make([]VisionResult, 0, len(*description.Captions))
-		for i, caption := range *description.Captions {
-			if caption.Confidence != nil && caption.Text != nil {
-				result = result[:len(result)+1]
-				result[i] = VisionResult{Text: *caption.Text, Confidence: float32(*caption.Confidence)}
+	tag, err := message.GetCompatibleLanguage(ctx, a.matcher)
+	if err == nil {
+		var description computervision.ImageDescription
+		description, err = a.client.DescribeImage(ctx, imageURL, nil, languageMapping[tag], nil)
+		logDebugJSON(description)
+		if err == nil && description.Captions != nil {
+			result = make([]VisionResult, 0, len(*description.Captions))
+			for i, caption := range *description.Captions {
+				if caption.Confidence != nil && caption.Text != nil {
+					result = result[:len(result)+1]
+					result[i] = VisionResult{Text: *caption.Text, Confidence: float32(*caption.Confidence)}
+				}
 			}
+			logDebugJSON(result)
+		} else {
+			logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
 		}
-		logDebugJSON(result)
-	} else {
-		logrus.Debug(fmt.Sprintf("azure describe returned error %v", err))
 	}
 	return result, structured_error.Wrap(err, structured_error.DescribeError)
 }

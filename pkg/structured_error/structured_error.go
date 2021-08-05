@@ -7,6 +7,7 @@ const (
 	RateLimited
 	TwitterError
 	DuplicateTweet
+	TweetTooLong
 	WrongMediaType
 	NoPhotosFound
 	OCRError

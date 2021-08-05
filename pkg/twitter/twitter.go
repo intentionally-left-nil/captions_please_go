@@ -277,6 +277,7 @@ func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string
 		"include_ext_alt_text":         []string{"true"},
 		"tweet_mode":                   []string{"extended"},
 	}
+	logrus.Debug(fmt.Sprintf("%s: Sending tweet %s", tweetID, message))
 	response, err := t.post(ctx, "tweet_reply", URL+"statuses/update.json", values)
 	if err == nil {
 		err = GetJSON(response, &tweet)
@@ -324,6 +325,8 @@ func validateResponse(statusCode int, body []byte) structured_error.StructuredEr
 				switch twitterError.Code {
 				case 88:
 					errorType = structured_error.RateLimited
+				case 186:
+					errorType = structured_error.TweetTooLong
 				case 187:
 					errorType = structured_error.DuplicateTweet
 				}

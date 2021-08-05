@@ -66,8 +66,10 @@ func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured
 	if annotations == nil && err == nil {
 		err = errors.New("no results")
 	}
-	annotationsJSON, _ := json.Marshal(annotations)
-	logrus.Debug(fmt.Sprintf("Google annotations\n%v\nerr: %v", string(annotationsJSON), err))
+	// This is too much, even for debug spew
+	// annotationsJSON, _ := json.Marshal(annotations)
+	// logrus.Debug(fmt.Sprintf("Google annotations\n%v\nerr: %v", string(annotationsJSON), err))
+	logrus.Debug(fmt.Sprintf("Have Google annotations %v", annotations != nil))
 	if err == nil {
 		text := getText(annotations.Pages)
 		language := getLanguage(annotations.Pages)

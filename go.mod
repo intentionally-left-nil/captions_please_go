@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.88.0
-	github.com/AnilRedshift/twitter-text-go v0.0.0-20210725161821-de75ef0ccb15
+	github.com/AnilRedshift/twitter-text-go v0.0.0-20210805210122-505773990a26
 	github.com/Azure/azure-sdk-for-go v55.8.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.19
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect

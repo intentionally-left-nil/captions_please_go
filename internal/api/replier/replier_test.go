@@ -33,12 +33,13 @@ func TestReply(t *testing.T) {
 	longMessage := twoHundred + " " + oneHundred
 	anError := errors.New("oh no")
 	twitterError := structured_error.Wrap(anError, structured_error.TwitterError)
+	tooLongError := structured_error.Wrap(anError, structured_error.TweetTooLong)
 	invalidMessage := "\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98"
 	tests := []struct {
 		name      string
 		message   string
 		expected  []string
-		replyErrs []error
+		replyErrs []structured_error.StructuredError
 		result    ReplyResult
 	}{
 		{
@@ -65,7 +66,7 @@ func TestReply(t *testing.T) {
 			name:      "Errors if sending the first tweet fails",
 			message:   longMessage,
 			expected:  []string{twoHundred},
-			replyErrs: []error{twitterError},
+			replyErrs: []structured_error.StructuredError{twitterError},
 			result: ReplyResult{
 				Err:         twitterError,
 				ParentTweet: &twitter.Tweet{Id: "0"},
@@ -75,11 +76,18 @@ func TestReply(t *testing.T) {
 			name:      "Errors if sending the last tweet fails",
 			message:   longMessage,
 			expected:  []string{twoHundred, oneHundred},
-			replyErrs: []error{nil, twitterError},
+			replyErrs: []structured_error.StructuredError{nil, twitterError},
 			result: ReplyResult{
 				Err:         twitterError,
 				ParentTweet: &twitter.Tweet{Id: "1"},
 				Remaining:   []string{oneHundred}},
+		},
+		{
+			name:      "Splits the tweet into two if twitter says its too long",
+			message:   "hello",
+			expected:  []string{"hello", "he", "llo"},
+			replyErrs: []structured_error.StructuredError{tooLongError, nil, nil},
+			result:    ReplyResult{ParentTweet: &twitter.Tweet{Id: "3"}},
 		},
 	}
 	for _, test := range tests {
@@ -89,7 +97,15 @@ func TestReply(t *testing.T) {
 			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentId string, message string) (*twitter.Tweet, error) {
 				parentAsInt, err := strconv.Atoi(parentId)
 				assert.NoError(t, err)
-				assert.Equal(t, tweetId, parentAsInt)
+				if test.replyErrs != nil &&
+					tweetId > 0 &&
+					test.replyErrs[tweetId-1] != nil &&
+					test.replyErrs[tweetId-1].Type() == structured_error.TweetTooLong {
+					assert.Equal(t, tweetId-1, parentAsInt)
+				} else {
+					assert.Equal(t, tweetId, parentAsInt)
+
+				}
 				assert.Equal(t, test.expected[tweetId], message)
 
 				if tweetId < len(test.replyErrs) {

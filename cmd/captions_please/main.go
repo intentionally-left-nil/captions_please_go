@@ -90,8 +90,20 @@ func main() {
 		api.WriteResponse(w, response)
 	}
 
+	rootHandler := func(w http.ResponseWriter, req *http.Request) {
+		var response api.APIResponse
+		switch req.Method {
+		case http.MethodGet:
+			response = api.APIResponse{Status: http.StatusOK, Response: map[string]string{"hello": "world"}}
+		default:
+			response = api.APIResponse{Status: http.StatusMethodNotAllowed}
+		}
+		api.WriteResponse(w, response)
+	}
+
 	http.HandleFunc("/status", statusHandler)
-	http.HandleFunc("/", webhookHandler)
+	http.HandleFunc("/webhook", webhookHandler)
+	http.HandleFunc("/", rootHandler)
 	log.Printf("captions-please listening at http://localhost:%d\n", PORT)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", PORT), nil))
 }

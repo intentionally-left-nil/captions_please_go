@@ -7,19 +7,29 @@ import (
 	"fmt"
 	"strings"
 
+	"cloud.google.com/go/translate"
 	vision "cloud.google.com/go/vision/apiv1"
+	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/language"
 	"google.golang.org/api/option"
 	pb "google.golang.org/genproto/googleapis/cloud/vision/v1"
 )
 
 type google struct {
-	client *vision.ImageAnnotatorClient
+	visionClient    *vision.ImageAnnotatorClient
+	translateClient *translate.Client
+	matcher         *language.Matcher
 }
 
-func NewGoogleVision(privateKeyId string, privateKey string) (OCR, error) {
-	var ocr OCR
+type Google interface {
+	OCR
+	Translator
+}
+
+func NewGoogle(privateKeyId string, privateKey string) (Google, error) {
+	var Google Google
 	credentials := map[string]string{
 		"type":                        "service_account",
 		"project_id":                  "captions-please-ocr",
@@ -32,22 +42,27 @@ func NewGoogleVision(privateKeyId string, privateKey string) (OCR, error) {
 		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
 		"client_x509_cert_url":        "https://www.googleapis.com/robot/v1/metadata/x509/captions-please%40captions-please-ocr.iam.gserviceaccount.com",
 	}
+
 	credentialsJSON, err := json.Marshal(credentials)
 	if err == nil {
 		ctx := context.Background()
-		var client *vision.ImageAnnotatorClient
-		client, err = vision.NewImageAnnotatorClient(ctx, option.WithCredentialsJSON(credentialsJSON))
+		var visionClient *vision.ImageAnnotatorClient
+		var translateClient *translate.Client
+		visionClient, err = vision.NewImageAnnotatorClient(ctx, option.WithCredentialsJSON(credentialsJSON))
 		if err == nil {
-			ocr = &google{client: client}
+			translateClient, err = translate.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
+			if err == nil {
+				Google = &google{visionClient: visionClient, translateClient: translateClient}
+			}
 		}
 	}
-	return ocr, err
+	return Google, err
 }
 
 func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured_error.StructuredError) {
 	var result *OCRResult
 	image := vision.NewImageFromURI(url)
-	annotations, err := g.client.DetectDocumentText(ctx, image, nil)
+	annotations, err := g.visionClient.DetectDocumentText(ctx, image, nil)
 	if annotations == nil && err == nil {
 		err = errors.New("no results")
 	}
@@ -60,8 +75,55 @@ func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured
 	}
 	return result, structured_error.Wrap(err, structured_error.OCRError)
 }
+
 func (g *google) Close() error {
-	return g.client.Close()
+	visionErr := g.visionClient.Close()
+	translateErr := g.translateClient.Close()
+	if visionErr != nil {
+		return visionErr
+	}
+	return translateErr
+}
+
+func (g *google) Translate(ctx context.Context, message string) (string, structured_error.StructuredError) {
+	var translated string
+	var err error
+	g.loadSupportedLanguages(ctx)
+	if g.matcher != nil {
+		desired := replier.GetLanguage(ctx)
+		tag, _, confidence := (*g.matcher).Match(desired)
+		if confidence >= language.High {
+			var translations []translate.Translation
+			translations, err = g.translateClient.Translate(ctx, []string{message}, tag, &translate.Options{
+				Format: translate.Text,
+			})
+			if len(translations) == 0 && err == nil {
+				err = errors.New("no results")
+			}
+			texts := make([]string, len(translations))
+			for i, translation := range translations {
+				texts[i] = translation.Text
+			}
+			translated = strings.Join(texts, "\n")
+		} else {
+			err = structured_error.Wrap(fmt.Errorf("%v has no high confidence matching language", desired), structured_error.UnsupportedLanguage)
+		}
+	}
+	return translated, structured_error.Wrap(err, structured_error.TranslateError)
+}
+
+func (g *google) loadSupportedLanguages(ctx context.Context) {
+	if g.matcher == nil {
+		languages, err := g.translateClient.SupportedLanguages(ctx, language.English)
+		if err == nil {
+			tags := make([]language.Tag, len(languages))
+			for i, lang := range languages {
+				tags[i] = lang.Tag
+			}
+			matcher := language.NewMatcher(tags)
+			g.matcher = &matcher
+		}
+	}
 }
 
 func getLanguage(pages []*pb.Page) OCRLanguage {

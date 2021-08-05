@@ -30,7 +30,7 @@ type ocrJobResult struct {
 
 func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, error) {
 	secrets := common.GetSecrets(ctx)
-	google, err := vision.NewGoogleVision(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+	google, err := vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 	state := &ocrState{
 		google: google,
 		client: client,

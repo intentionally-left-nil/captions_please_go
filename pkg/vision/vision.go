@@ -32,6 +32,10 @@ type Describer interface {
 	Describe(ctx context.Context, url string) ([]VisionResult, structured_error.StructuredError)
 }
 
+type Translator interface {
+	Translate(ctx context.Context, message string) (string, structured_error.StructuredError)
+}
+
 func logDebugJSON(v interface{}) {
 	logrus.DebugFn(func() []interface{} {
 		bytes, err := json.Marshal(v)

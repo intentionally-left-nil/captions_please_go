@@ -11,6 +11,8 @@ const (
 	NoPhotosFound
 	OCRError
 	DescribeError
+	TranslateError
+	UnsupportedLanguage
 	Unknown
 )
 

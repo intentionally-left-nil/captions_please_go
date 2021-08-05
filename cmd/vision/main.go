@@ -40,6 +40,15 @@ func main() {
 					&cli.StringFlag{Name: "url", Required: true},
 				},
 			},
+			{
+				Name:   "translate",
+				Usage:  "Convert a string from one language to another",
+				Action: translate,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "lang", Required: true},
+					&cli.StringFlag{Name: "message", Required: true},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "verbose"},
@@ -69,7 +78,7 @@ func ocr(c *cli.Context) error {
 			var ocr vision.OCR
 			switch c.String("provider") {
 			case "google":
-				ocr, err = vision.NewGoogleVision(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+				ocr, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 			case "azure":
 				ocr = vision.NewAzureVision(secrets.AzureComputerVisionKey).(vision.OCR)
 			default:
@@ -109,6 +118,27 @@ func caption(c *cli.Context) error {
 					for _, result := range results {
 						printJSON(result)
 					}
+				}
+			}
+		}
+	}
+	return err
+}
+
+func translate(c *cli.Context) error {
+	secrets, err := common.NewSecrets()
+	if err == nil {
+		var tag language.Tag
+		tag, err = language.Parse(c.String("lang"))
+		if err == nil {
+			ctx := replier.WithLanguage(context.Background(), tag)
+			var translator vision.Translator
+			translator, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+			if err == nil {
+				var result string
+				result, err = translator.Translate(ctx, c.String("message"))
+				if err == nil {
+					fmt.Println(result)
 				}
 			}
 		}

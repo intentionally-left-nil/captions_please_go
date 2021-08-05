@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
@@ -58,7 +58,7 @@ func getAutoResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twit
 		} else if ocrResponse.err == nil && describeResponse.err == nil && len(ocrResponse.reply) < longOCRMessageThreshold {
 			// If there's both OCR and a description, and the OCR text is less than the cutoff
 			// then display both
-			reply := replier.CombineDescriptionAndOCR(ctx, describeResponse.reply, ocrResponse.reply)
+			reply := message.CombineDescriptionAndOCR(ctx, describeResponse.reply, ocrResponse.reply)
 			mergedResponses[i] = mediaResponse{index: i, responseType: mergedOCRVisionResponse, reply: reply}
 		} else if ocrResponse.err == nil {
 			mergedResponses[i] = ocrResponse

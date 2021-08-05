@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
 
@@ -35,9 +35,9 @@ func getAltTextMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTwe
 	for i, media := range mediaTweet.Media {
 		var response mediaResponse
 		if media.AltText != nil {
-			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: replier.Unlocalized(*media.AltText)}
+			response = mediaResponse{index: i, responseType: foundAltTextResponse, reply: message.Unlocalized(*media.AltText)}
 		} else if media.Type == "photo" {
-			reply := replier.NoAltText(ctx, mediaTweet.User.Display)
+			reply := message.NoAltText(ctx, mediaTweet.User.Display)
 			response = mediaResponse{index: i, responseType: missingAltTextResponse, reply: reply}
 		} else {
 			response = mediaResponse{index: i, responseType: doNothingResponse}

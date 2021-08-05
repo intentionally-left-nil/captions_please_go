@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -74,7 +74,7 @@ func ocr(c *cli.Context) error {
 	if err == nil {
 		tag, err := language.Parse(c.String("lang"))
 		if err == nil {
-			ctx := replier.WithLanguage(context.Background(), tag)
+			ctx := message.WithLanguage(context.Background(), tag)
 			var ocr vision.OCR
 			switch c.String("provider") {
 			case "google":
@@ -102,7 +102,7 @@ func caption(c *cli.Context) error {
 	if err == nil {
 		tag, err := language.Parse(c.String("lang"))
 		if err == nil {
-			ctx := replier.WithLanguage(context.Background(), tag)
+			ctx := message.WithLanguage(context.Background(), tag)
 			var describer vision.Describer
 			switch c.String("provider") {
 			case "azure":
@@ -131,7 +131,7 @@ func translate(c *cli.Context) error {
 		var tag language.Tag
 		tag, err = language.Parse(c.String("lang"))
 		if err == nil {
-			ctx := replier.WithLanguage(context.Background(), tag)
+			ctx := message.WithLanguage(context.Background(), tag)
 			var translator vision.Translator
 			translator, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 			if err == nil {

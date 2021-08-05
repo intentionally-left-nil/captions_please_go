@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -86,7 +86,7 @@ func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *
 		var response mediaResponse
 		jobResult := jobResults[i]
 		if jobResult.err == nil {
-			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: replier.Unlocalized(jobResult.ocr.Text)}
+			response = mediaResponse{index: i, responseType: foundOCRResponse, reply: message.Unlocalized(jobResult.ocr.Text)}
 		} else if jobResult.err.Type() == structured_error.WrongMediaType {
 			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {

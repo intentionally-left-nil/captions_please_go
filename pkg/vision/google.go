@@ -9,7 +9,7 @@ import (
 
 	"cloud.google.com/go/translate"
 	vision "cloud.google.com/go/vision/apiv1"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
@@ -85,16 +85,16 @@ func (g *google) Close() error {
 	return translateErr
 }
 
-func (g *google) Translate(ctx context.Context, message string) (string, structured_error.StructuredError) {
+func (g *google) Translate(ctx context.Context, toTranslate string) (string, structured_error.StructuredError) {
 	var translated string
 	var err error
 	g.loadSupportedLanguages(ctx)
 	if g.matcher != nil {
-		desired := replier.GetLanguage(ctx)
+		desired := message.GetLanguage(ctx)
 		tag, _, confidence := (*g.matcher).Match(desired)
 		if confidence >= language.High {
 			var translations []translate.Translation
-			translations, err = g.translateClient.Translate(ctx, []string{message}, tag, &translate.Options{
+			translations, err = g.translateClient.Translate(ctx, []string{toTranslate}, tag, &translate.Options{
 				Format: translate.Text,
 			})
 			if len(translations) == 0 && err == nil {

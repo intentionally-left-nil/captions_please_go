@@ -3,6 +3,7 @@ package replier
 import (
 	"context"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 )
@@ -21,7 +22,7 @@ type replierCtxKey int
 const theReplierKey replierCtxKey = 0
 
 func WithReplier(ctx context.Context, client twitter.Twitter) (context.Context, error) {
-	err := loadMessages()
+	err := message.LoadMessages()
 	if err == nil {
 		state := &replierState{client: client}
 		ctx = setReplierState(ctx, state)
@@ -29,7 +30,7 @@ func WithReplier(ctx context.Context, client twitter.Twitter) (context.Context, 
 	return ctx, err
 }
 
-func Reply(ctx context.Context, tweet *twitter.Tweet, message Localized) ReplyResult {
+func Reply(ctx context.Context, tweet *twitter.Tweet, message message.Localized) ReplyResult {
 	remaining, err := splitMessage(string(message))
 	if err != nil {
 		return ReplyResult{Err: err, ParentTweet: tweet}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
@@ -107,7 +108,7 @@ func TestReply(t *testing.T) {
 			ctx, err := WithReplier(ctx, mockTwitter)
 			assert.NoError(t, err)
 			tweet := &twitter.Tweet{Id: "0"}
-			result := Reply(ctx, tweet, Unlocalized(test.message))
+			result := Reply(ctx, tweet, message.Unlocalized(test.message))
 			if test.result.Err == nil {
 				assert.NoError(t, result.Err)
 			} else {

@@ -1,4 +1,4 @@
-package replier
+package message
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func GetLanguage(ctx context.Context) language.Tag {
 	return language.English
 }
 
-func loadMessages() error {
+func LoadMessages() error {
 	var err error
 	for _, entry := range messages {
 		var tag language.Tag

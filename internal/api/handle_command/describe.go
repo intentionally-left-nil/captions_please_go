@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
@@ -101,8 +101,8 @@ func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTw
 	return responses
 }
 
-func formatVisionReply(ctx context.Context, visionResults []vision.VisionResult) (replier.Localized, structured_error.StructuredError) {
-	var localized replier.Localized
+func formatVisionReply(ctx context.Context, visionResults []vision.VisionResult) (message.Localized, structured_error.StructuredError) {
+	var localized message.Localized
 	var err structured_error.StructuredError = nil
 	filteredResults := make([]string, 0, len(visionResults))
 	for i, visionResult := range visionResults {
@@ -115,7 +115,7 @@ func formatVisionReply(ctx context.Context, visionResults []vision.VisionResult)
 	if len(filteredResults) == 0 {
 		err = structured_error.Wrap(fmt.Errorf("there were %d results, but none were high-confidence", len(visionResults)), structured_error.DescribeError)
 	} else {
-		localized = replier.CombineDescriptions(ctx, filteredResults)
+		localized = message.CombineDescriptions(ctx, filteredResults)
 	}
 	return localized, err
 }

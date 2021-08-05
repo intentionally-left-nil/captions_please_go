@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v3.1/computervision"
 	"github.com/Azure/go-autorest/autorest"
@@ -34,7 +34,7 @@ func (a *azure) Describe(ctx context.Context, url string) ([]VisionResult, struc
 	imageURL := computervision.ImageURL{URL: &url}
 	var language string
 	var ok bool
-	if language, ok = languageMapping[replier.GetLanguage(ctx)]; !ok {
+	if language, ok = languageMapping[message.GetLanguage(ctx)]; !ok {
 		language = "en"
 	}
 	description, err := a.client.DescribeImage(ctx, imageURL, nil, language, nil)

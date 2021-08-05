@@ -1,4 +1,4 @@
-package replier
+package message
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 )
 
 func TestLoadMessages(t *testing.T) {
-	assert.NoError(t, loadMessages())
+	assert.NoError(t, LoadMessages())
 }
 
 func TestGetErrorMessage(t *testing.T) {
-	assert.NoError(t, loadMessages())
+	assert.NoError(t, LoadMessages())
 	anError := errors.New("oh no")
 	tests := []struct {
 		name     string
@@ -36,7 +36,7 @@ func TestGetErrorMessage(t *testing.T) {
 }
 
 func TestLabelImage(t *testing.T) {
-	assert.NoError(t, loadMessages())
+	assert.NoError(t, LoadMessages())
 	assert.Equal(t, Localized("Image 1: foo"), LabelImage(context.Background(), Unlocalized("foo"), 0))
 	assert.Equal(t, Localized("Image 2: foo"), LabelImage(context.Background(), Unlocalized("foo"), 1))
 }

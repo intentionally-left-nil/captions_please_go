@@ -71,6 +71,8 @@ func parseEnglishDirective(tokens []string) (*directive, []string) {
 			dir := autoDirective
 			d = &dir
 			remainder = remainder[1:]
+		case "text":
+			fallthrough
 		case "ocr":
 			dir := ocrDirective
 			d = &dir
@@ -92,6 +94,10 @@ func parseEnglishDirective(tokens []string) (*directive, []string) {
 				dir := altTextDirective
 				d = &dir
 				remainder = remainder[2:]
+			}
+		case "get":
+			if len(tokens) >= 2 {
+				d, remainder = parseEnglishDirective(tokens[1:])
 			}
 		}
 	}

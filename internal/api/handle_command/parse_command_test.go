@@ -53,6 +53,14 @@ func TestParseCommand(t *testing.T) {
 			expected: command{directive: ocrDirective, tag: language.English},
 		},
 		{
+			command:  "text",
+			expected: command{directive: ocrDirective, tag: language.English},
+		},
+		{
+			command:  "get text",
+			expected: command{directive: ocrDirective, tag: language.English},
+		},
+		{
 			command:  "auto",
 			expected: command{directive: autoDirective, tag: language.English},
 		},
@@ -90,6 +98,10 @@ func TestParseCommand(t *testing.T) {
 		},
 		{
 			command:  "in german, alt text",
+			expected: command{directive: altTextDirective, tag: language.German},
+		},
+		{
+			command:  "in german, get alt text",
 			expected: command{directive: altTextDirective, tag: language.German},
 		},
 	}

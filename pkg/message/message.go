@@ -60,7 +60,7 @@ const (
 You can customize the response by adding one of the following commands after tagging me:`
 	helpCommandFormat                = "help"
 	altTextCommandFormat             = "alt text"
-	ocrCommandFormat                 = "ocr"
+	ocrCommandFormat                 = "get text"
 	describeCommandFormat            = "describe"
 	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
 	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"

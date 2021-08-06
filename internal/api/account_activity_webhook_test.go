@@ -144,5 +144,56 @@ func TestAccountActivityWebhook(t *testing.T) {
 			assert.Equal(t, test.numErrors, foundErrors)
 		})
 	}
+}
 
+func TestGetCommand(t *testing.T) {
+	captionsPleaseOffset := len("@captions_please")
+	tests := []struct {
+		name     string
+		tweet    *twitter.Tweet
+		mention  *twitter.Mention
+		expected string
+	}{
+		{
+			name:     "simple mention has no command",
+			tweet:    &twitter.Tweet{VisibleText: "@captions_please", VisibleTextOffset: 0},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset},
+			expected: "",
+		},
+		{
+			name:     "whitespace is stripped",
+			tweet:    &twitter.Tweet{VisibleText: "@captions_please ", VisibleTextOffset: 0},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset},
+			expected: "",
+		},
+		{
+			name:     "gets a command on one line",
+			tweet:    &twitter.Tweet{VisibleText: "@captions_please get alt text", VisibleTextOffset: 0},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset},
+			expected: "get alt text",
+		},
+		{
+			name:     "ignores text before @captions_please",
+			tweet:    &twitter.Tweet{VisibleText: "@other_bot something @captions_please get alt text", VisibleTextOffset: 0},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset + len("@other_bot something ")},
+			expected: "get alt text",
+		},
+		{
+			name:     "Properly indexes the bot mention with hidden text",
+			tweet:    &twitter.Tweet{VisibleText: "@captions_please get alt text", VisibleTextOffset: 33},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset + 33},
+			expected: "get alt text",
+		},
+		{
+			name:     "Ignores text on new lines",
+			tweet:    &twitter.Tweet{VisibleText: "@bot1\n@bot2\n@captions_please get alt text\n@bot4", VisibleTextOffset: 0},
+			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset + len("@bot1\n@bot2\n")},
+			expected: "get alt text",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.expected, getCommand(test.tweet, test.mention))
+		})
+	}
 }

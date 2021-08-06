@@ -191,7 +191,10 @@ func getCommand(tweet *twitter.Tweet, mention *twitter.Mention) string {
 	command := ""
 	endIndex := mention.EndIndex - tweet.VisibleTextOffset
 	if endIndex+1 < len(tweet.VisibleText) {
-		command = strings.TrimSpace(tweet.VisibleText[endIndex+1:])
+		lines := strings.SplitN(tweet.VisibleText[endIndex+1:], "\n", 2)
+		if len(lines) > 0 {
+			command = strings.TrimSpace(lines[0])
+		}
 	}
 
 	logrus.Debug(fmt.Sprintf("command to parse is %s", command))

@@ -1,8 +1,10 @@
 package handle_command
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
 )
 
@@ -22,9 +24,10 @@ type command struct {
 }
 
 func parseCommand(message string) command {
-	message = strings.ToLower(message)
+	message = strings.TrimSpace(strings.ToLower(message))
 	message = strings.ReplaceAll(message, ",", "")
 	tokens := strings.Fields(message)
+	logrus.Debug(fmt.Sprintf("parseCommand parsing tokens %v", tokens))
 	c := parseEnglish(tokens)
 	if c == nil {
 		c = &command{directive: helpDirective, tag: language.English}

@@ -6,16 +6,17 @@ import (
 )
 
 type Tweet struct {
-	Id            string
-	FullText      string
-	VisibleText   string
-	ParentTweetId string
-	Type          TweetType
-	Mentions      []Mention
-	User          User
-	Media         []Media
-	FallbackMedia []Media
-	QuoteTweet    *Tweet
+	Id                string
+	FullText          string
+	VisibleText       string
+	VisibleTextOffset int
+	ParentTweetId     string
+	Type              TweetType
+	Mentions          []Mention
+	User              User
+	Media             []Media
+	FallbackMedia     []Media
+	QuoteTweet        *Tweet
 }
 
 type User struct {
@@ -65,6 +66,11 @@ type rawMention struct {
 	Indices []int `json:"indices"`
 }
 
+type rawUrl struct {
+	Url     string `json:"expanded_url"`
+	Indices []int  `json:"indices"`
+}
+
 type Media struct {
 	Id      string  `json:"id_str"`
 	Url     string  `json:"media_url_https"`
@@ -75,6 +81,7 @@ type Media struct {
 type entities struct {
 	Mentions []rawMention `json:"user_mentions"`
 	Media    []Media      `json:"media"`
+	Urls     []rawUrl     `json:"urls"`
 }
 
 type textInfo struct {
@@ -130,6 +137,24 @@ func (t *rawTweet) TextInfo() (textInfo, error) {
 		}
 	} else {
 		err = invalidTweet("text", nil)
+	}
+
+	if err == nil && t.TweetType() == QuoteTweet && t.Entities != nil {
+		// Quote tweets include the url at the end of the tweet
+		// but it's not visible to the user. Remove it from the visible range.
+		urlStart := -1
+		for i, url := range t.Entities.Urls {
+			if validateRange(info.full, url.Indices, fmt.Sprintf("entities.urls[%d]", i)) == nil &&
+				url.Indices[0] > urlStart {
+				urlStart = url.Indices[0]
+			}
+		}
+
+		if urlStart >= 0 && urlStart >= info.start {
+			// This will keep the trailing space before the URL but it's not worth optimizing for
+			// as downstream callers will just strip excess space
+			info.end = urlStart
+		}
 	}
 	return info, err
 }
@@ -212,6 +237,7 @@ func (t *Tweet) UnmarshalJSON(bytes []byte) error {
 	}
 	t.VisibleText = ti.Visible()
 	t.FullText = ti.full
+	t.VisibleTextOffset = ti.start
 
 	t.ParentTweetId = raw.ParentTweetId
 	t.User = raw.User

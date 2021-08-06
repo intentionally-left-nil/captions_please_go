@@ -3,9 +3,11 @@ package handle_command
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"github.com/sirupsen/logrus"
 )
 
 const MAX_DEPTH = 3
@@ -73,10 +75,13 @@ func getParentTweet(ctx context.Context, client twitter.Twitter, tweet *twitter.
 	var parentTweet *twitter.Tweet
 	var err structured_error.StructuredError
 	if tweet.Type == twitter.QuoteTweet && tweet.QuoteTweet != nil {
+		logrus.Debug(fmt.Sprintf("%s: Directly returning quote tweet %s", tweet.Id, tweet.QuoteTweet.Id))
 		parentTweet = tweet.QuoteTweet
 	} else if tweet.ParentTweetId != "" {
+		logrus.Debug(fmt.Sprintf("%s: Getting parent tweet %s", tweet.Id, tweet.ParentTweetId))
 		parentTweet, err = client.GetTweet(ctx, tweet.ParentTweetId)
 	} else {
+		logrus.Debug(fmt.Sprintf("%s: No parent tweet", tweet.Id))
 		err = structured_error.Wrap(errors.New("no parent tweet"), structured_error.NoPhotosFound)
 	}
 	return parentTweet, err

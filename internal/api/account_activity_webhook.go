@@ -182,9 +182,16 @@ func getVisibleMention(botId string, tweet *twitter.Tweet) *twitter.Mention {
 }
 
 func getCommand(tweet *twitter.Tweet, mention *twitter.Mention) string {
+	// If the full text is: "@replyuser @captions_please help"
+	// and the visible part is "@captions_please help"
+	// The VisibleTextOffset is 11, and the mentionIndices are [11,27]
+	// To convert mentionIndices (in FullText indices) into VisibleText indices
+	// we just need to subtract the offset
+	// e.g. in this example, @captions_please is from [0,16] in the visible text
 	command := ""
-	if mention.EndIndex+1 <= len(tweet.FullText) {
-		command = strings.TrimSpace(tweet.FullText[mention.EndIndex+1:])
+	endIndex := mention.EndIndex - tweet.VisibleTextOffset
+	if endIndex+1 < len(tweet.VisibleText) {
+		command = strings.TrimSpace(tweet.VisibleText[endIndex+1:])
 	}
 
 	logrus.Debug(fmt.Sprintf("command to parse is %s", command))

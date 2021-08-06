@@ -22,7 +22,11 @@ func TestParseCommand(t *testing.T) {
 		},
 		{
 			command:  "this is some random text",
-			expected: command{directive: helpDirective, tag: language.English},
+			expected: command{directive: unknownDirective, tag: language.English},
+		},
+		{
+			command:  "the",
+			expected: command{directive: unknownDirective, tag: language.English},
 		},
 		{
 			command:  "in english",

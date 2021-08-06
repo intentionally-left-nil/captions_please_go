@@ -18,3 +18,12 @@ func Help(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 	}
 	return common.ActivityResult{Tweet: tweet, Action: "reply with help"}
 }
+
+func Unknown(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
+	result := replier.Reply(ctx, tweet, message.UnknownCommandMessage(ctx))
+	if result.Err != nil {
+		logrus.Info(fmt.Sprintf("%s: Replying with the unknown message failed with %v", tweet.Id, result.Err))
+	}
+	return common.ActivityResult{Tweet: tweet, Action: "reply with unknown message"}
+
+}

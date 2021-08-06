@@ -24,8 +24,10 @@ func Command(ctx context.Context, toParse string, job common.ActivityJob) common
 	case describeDirective:
 		return HandleDescribe(ctx, job.Tweet)
 	case helpDirective:
+		return Help(ctx, job.Tweet)
+	case unknownDirective:
 		fallthrough
 	default:
-		return Help(ctx, job.Tweet)
+		return Unknown(ctx, job.Tweet)
 	}
 }

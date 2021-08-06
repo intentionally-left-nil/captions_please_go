@@ -70,6 +70,7 @@ You can customize the response by adding one of the following commands after tag
 	multipleDescriptionsJoinerFormat = "It might also be %s"
 	combineDescriptionAndOCRFormat   = "It contains the text: %s"
 	unsupportedLanguageFormat        = "I'm unable to support that language right now, sorry!"
+	unknownCommandFormat             = "I didn't understand your message, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
 )
 
 var errorMapping map[structured_error.ErrorType]string = map[structured_error.ErrorType]string{
@@ -105,6 +106,10 @@ func HelpMessage(ctx context.Context) Localized {
 		builder.WriteString(string(sprint(ctx, formats[1])))
 	}
 	return Localized(builder.String())
+}
+
+func UnknownCommandMessage(ctx context.Context) Localized {
+	return sprint(ctx, unknownCommandFormat)
 }
 
 func LabelImage(ctx context.Context, description Localized, index int) Localized {
@@ -180,6 +185,7 @@ var messages = [...]struct {
 	{"en", multipleDescriptionsJoinerFormat, catalog.String("It might also be %[1]s")},
 	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
 	{"en", unsupportedLanguageFormat, unsupportedLanguageFormat},
+	{"en", unknownCommandFormat, unknownCommandFormat},
 }
 
 func sprint(ctx context.Context, format string) Localized {

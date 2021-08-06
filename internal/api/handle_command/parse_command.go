@@ -16,6 +16,7 @@ const (
 	altTextDirective  directive = "altText"
 	ocrDirective      directive = "ocr"
 	describeDirective directive = "describe"
+	unknownDirective  directive = "unknown"
 )
 
 type command struct {
@@ -30,7 +31,7 @@ func parseCommand(message string) command {
 	logrus.Debug(fmt.Sprintf("parseCommand parsing tokens %v", tokens))
 	c := parseEnglish(tokens)
 	if c == nil {
-		c = &command{directive: helpDirective, tag: language.English}
+		c = &command{directive: unknownDirective, tag: language.English}
 	}
 	return *c
 }
@@ -41,7 +42,7 @@ func parseEnglish(tokens []string) *command {
 		// Special case for English - no text == auto in english
 		c = &command{directive: autoDirective, tag: language.English}
 	} else {
-		remainder := tokens
+		remainder := parseEnglishRemoveModifiers(tokens)
 		tag, remainder := parseEnglishLang(remainder)
 		dir, remainder := parseEnglishDirective(remainder)
 		if tag == nil {
@@ -59,6 +60,19 @@ func parseEnglish(tokens []string) *command {
 		}
 	}
 	return c
+}
+
+func parseEnglishRemoveModifiers(tokens []string) []string {
+	filtered := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		switch token {
+		case "and":
+		case "the":
+		default:
+			filtered = append(filtered, token)
+		}
+	}
+	return filtered
 }
 
 func parseEnglishDirective(tokens []string) (*directive, []string) {

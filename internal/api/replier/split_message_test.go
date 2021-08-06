@@ -16,6 +16,9 @@ func TestSplitMessage(t *testing.T) {
 		if len(s) > 5 {
 			return tweet, validate.TooLongError(len(s))
 		}
+		if len(s) == 0 {
+			return tweet, validate.EmptyError{}
+		}
 		return tweet, nil
 	}
 
@@ -34,6 +37,13 @@ func TestSplitMessage(t *testing.T) {
 		tweets               []string
 		err                  error
 	}{
+		{
+			name:                 "regression test: tweet splits consecutive spaces",
+			message:              "0123   7",
+			parseTweet:           fiveCharacterValidate,
+			parseTweetSecondPass: parseTweetSecondPass,
+			tweets:               []string{"0123", "7"},
+		},
 		{
 			name:       "Simple case where the message is one valid tweet",
 			message:    "hey there",

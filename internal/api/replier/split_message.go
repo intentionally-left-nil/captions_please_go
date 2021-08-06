@@ -1,12 +1,14 @@
 package replier
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/twitter-text-go/validate"
+	"github.com/sirupsen/logrus"
 )
 
 var parseTweet = validate.ParseTweet
@@ -14,6 +16,7 @@ var parseTweetSecondPass = validate.ParseTweet
 
 func splitMessage(message string) ([]string, structured_error.StructuredError) {
 	if !utf8.ValidString(message) {
+		logrus.Debug("Not a valid utf-8 string")
 		return nil, structured_error.Wrap(validate.InvalidCharacterError{}, structured_error.CannotSplitMessage)
 	}
 	_, err := parseTweet(message)
@@ -29,6 +32,11 @@ func splitMessage(message string) ([]string, structured_error.StructuredError) {
 	start, end, runeValue := 0, 0, rune(0)
 	for end, runeValue = range message {
 	repeat:
+		if start == end {
+			// We tried to repeat, but didn't make any progress. Skip the loop to prevent
+			// a false error trying to parse an empty text
+			continue
+		}
 		// Don't need to error check RuneLen since we called utf8.ValidString above
 		runeLen := utf8.RuneLen(runeValue)
 
@@ -41,6 +49,7 @@ func splitMessage(message string) ([]string, structured_error.StructuredError) {
 				whitespaceLen = runeLen
 			} else if _, ok := err.(validate.TooLongError); !ok {
 				// There was some kind of parsing error, give up
+				logrus.Debug(fmt.Sprintf("splitMessage errored when calling parseTweet for [%d:%d]%s", start, end, message[start:end]))
 				goto finally
 			} else if whitespaceIndex >= 0 {
 				// The current tweet is too long, but there was a previous whitespace we can
@@ -72,6 +81,7 @@ func splitMessage(message string) ([]string, structured_error.StructuredError) {
 						// Don't advance to the next rune, but repeat the process with the new start index
 						goto repeat
 					} else if err != nil {
+						logrus.Debug(fmt.Sprintf("splitMessage errored when backtracking to find a cutoff point at index %d for %s", secondPassIndex, message[start:end+runeLen]))
 						// There was some kind of parsing error, give up
 						goto finally
 					}
@@ -84,6 +94,10 @@ finally:
 
 	if err == nil && start < end {
 		tweets = appendTweet(tweets, message[start:])
+	}
+
+	if err != nil {
+		logrus.Debug(fmt.Sprintf("splitMessage error %v", err))
 	}
 	return tweets, structured_error.Wrap(err, structured_error.CannotSplitMessage)
 }

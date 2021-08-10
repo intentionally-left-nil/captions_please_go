@@ -29,11 +29,59 @@ func parseCommand(message string) command {
 	message = strings.ReplaceAll(message, ",", "")
 	tokens := strings.Fields(message)
 	logrus.Debug(fmt.Sprintf("parseCommand parsing tokens %v", tokens))
-	c := parseEnglish(tokens)
+	c := parseGerman(tokens)
+	if c != nil {
+		return *c
+	}
+
+	c = parseEnglish(tokens)
 	if c == nil {
 		c = &command{directive: unknownDirective, tag: language.English}
 	}
 	return *c
+}
+
+func parseGerman(tokens []string) *command {
+	var c *command
+	if len(tokens) > 0 {
+		dir, _ := parseGermanDirective(tokens)
+		if dir != nil {
+			c = &command{tag: language.German, directive: *dir}
+		}
+	}
+	return c
+}
+
+func parseGermanDirective(tokens []string) (*directive, []string) {
+	var d *directive
+	remainder := tokens
+	if len(tokens) >= 1 {
+		switch tokens[0] {
+		case "hilfe":
+			dir := helpDirective
+			d = &dir
+			remainder = remainder[1:]
+		case "alternativtext":
+			dir := altTextDirective
+			d = &dir
+			remainder = remainder[1:]
+		case "scannen":
+			dir := ocrDirective
+			d = &dir
+			remainder = remainder[1:]
+		case "beschreiben":
+			dir := describeDirective
+			d = &dir
+			remainder = remainder[1:]
+		case "text":
+			{
+				if len(tokens) >= 2 {
+					d, remainder = parseGermanDirective(tokens[1:])
+				}
+			}
+		}
+	}
+	return d, remainder
 }
 
 func parseEnglish(tokens []string) *command {

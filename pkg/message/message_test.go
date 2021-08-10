@@ -7,6 +7,7 @@ import (
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/text/language"
 )
 
 func TestLoadMessages(t *testing.T) {
@@ -33,6 +34,12 @@ func TestGetErrorMessage(t *testing.T) {
 			assert.Equal(t, test.enResult, ErrorMessage(context.Background(), test.err))
 		})
 	}
+}
+
+func TestGerman(t *testing.T) {
+	assert.NoError(t, LoadMessages())
+	ctx := WithLanguage(context.Background(), language.German)
+	assert.Equal(t, Localized("Hilfe"), sprint(ctx, "help"))
 }
 
 func TestLabelImage(t *testing.T) {

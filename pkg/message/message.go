@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 	"golang.org/x/text/message/catalog"
@@ -186,14 +187,34 @@ var messages = [...]struct {
 	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
 	{"en", unsupportedLanguageFormat, unsupportedLanguageFormat},
 	{"en", unknownCommandFormat, unknownCommandFormat},
+	{"de", helpCommandFormat, "Hilfe"},
+	{"de", altTextCommandFormat, "Alternativtext"},
+	{"de", ocrCommandFormat, "Text scannen"},
+	{"de", describeCommandFormat, "beschreiben"},
+	{"de", helpUsageFormat, "Markiere @captions_please in einem Tweet, um eine Bildbeschreibung zu bekommen. Füge eines der Kommandos hinzu, wie"},
+	{"de", altTextUsageFormat, "Lese, was schon als Bildbeschreibung hinzugefügt ist"},
+	{"de", ocrUsageFormat, "Scanne, was an Text im Bild vorhanden ist (Text in Bildform)"},
+	{"de", describeUsageFormat, "Nutze KI (Künstliche Intelligenz), um eine Bildbeschreibung zu erzeugen"},
 }
 
 func sprint(ctx context.Context, format string) Localized {
-	tag := GetLanguage(ctx)
-	return Localized(message.NewPrinter(tag).Sprint(format))
+	tag := getServerSupportedLanguage(ctx)
+	// N.B. If you call printer.Sprint, it doesn't do any translations!!
+	// Therefore, call Sprintf without any formatters or specifiers
+	return Localized(message.NewPrinter(tag).Sprintf(format))
 }
 
 func sprintf(ctx context.Context, format string, args ...interface{}) Localized {
-	tag := GetLanguage(ctx)
+	tag := getServerSupportedLanguage(ctx)
 	return Localized(message.NewPrinter(tag).Sprintf(format, args...))
+}
+
+func getServerSupportedLanguage(ctx context.Context) language.Tag {
+	matcher := language.NewMatcher([]language.Tag{language.English, language.German})
+	tag, err := GetCompatibleLanguage(ctx, matcher)
+	if err != nil {
+		tag = language.English
+	}
+	logrus.Debug(fmt.Sprintf("Server supported language is %v", tag))
+	return tag
 }

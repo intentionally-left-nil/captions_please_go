@@ -33,7 +33,8 @@ func TestWithAccountActivity(t *testing.T) {
 func TestAccountActivityWebhook(t *testing.T) {
 	// Turn on for debug logging
 	// logrus.SetLevel(logrus.DebugLevel)
-	// helpTweet := "{\"id_str\":\"helpTweet\", \"text\": \"@captions_please help\", \"entities\":{\"user_mentions\":[{\"id_str\":\"123\", \"screen_name\":\"captions_please\", \"name\":\"myName\", \"indices\":[0,16]}]}}"
+	botEntity := "\"entities\":{\"user_mentions\":[{\"id_str\":\"123\", \"screen_name\":\"captions_please\", \"name\":\"myName\", \"indices\":[0,16]}]}"
+	helpTweet := "{\"id_str\":\"helpTweet\", \"text\": \"@captions_please help\", " + botEntity + "}"
 	tests := []struct {
 		name               string
 		message            string
@@ -74,6 +75,12 @@ func TestAccountActivityWebhook(t *testing.T) {
 			message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[]}",
 			apiResponse:     APIResponse{Status: http.StatusOK},
 			expectedActions: []string{"no creation events"},
+		},
+		{
+			name:            "Ignores retweets",
+			message:         "{\"for_user_id\":\"123\", \"tweet_create_events\":[{\"id_str\":\"retweet\"," + botEntity + ", \"text\": \"@captions_please\", \"indices\": [0,16], \"retweeted_status\":" + helpTweet + "}]}",
+			apiResponse:     APIResponse{Status: http.StatusOK},
+			expectedActions: []string{"Not responding to a retweet"},
 		},
 		// TODO replace with a new test
 		// {

@@ -139,12 +139,15 @@ func getLanguage(pages []*pb.Page) OCRLanguage {
 
 	languages := map[string][]float32{}
 	for _, page := range pages {
-		for _, detectedLanguage := range page.Property.DetectedLanguages {
-			confidences, ok := languages[detectedLanguage.LanguageCode]
-			if !ok {
-				confidences = []float32{}
+		// Apparently, google returns nil pointers sometimes so we have to check everything. sigh.
+		if page.Property != nil {
+			for _, detectedLanguage := range page.Property.DetectedLanguages {
+				confidences, ok := languages[detectedLanguage.LanguageCode]
+				if !ok {
+					confidences = []float32{}
+				}
+				languages[detectedLanguage.LanguageCode] = append(confidences, float32(detectedLanguage.Confidence))
 			}
-			languages[detectedLanguage.LanguageCode] = append(confidences, float32(detectedLanguage.Confidence))
 		}
 	}
 
@@ -168,11 +171,27 @@ func getLanguage(pages []*pb.Page) OCRLanguage {
 
 func getText(pages []*pb.Page) string {
 	builder := strings.Builder{}
+	// Apparently, google returns nil pointers sometimes so we have to check everything. sigh.
 	for _, page := range pages {
+		if page == nil {
+			continue
+		}
 		for _, block := range page.Blocks {
+			if block == nil {
+				continue
+			}
 			for _, paragraph := range block.Paragraphs {
+				if paragraph == nil {
+					continue
+				}
 				for _, word := range paragraph.Words {
+					if word == nil {
+						continue
+					}
 					for _, symbol := range word.Symbols {
+						if symbol == nil {
+							continue
+						}
 						if symbol.Property != nil && symbol.Property.DetectedBreak != nil && symbol.Property.DetectedBreak.IsPrefix {
 							builder.WriteString(" ")
 						}

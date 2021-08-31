@@ -8,6 +8,7 @@ const (
 	TwitterError
 	DuplicateTweet
 	TweetTooLong
+	UserBlockedBot
 	WrongMediaType
 	NoPhotosFound
 	OCRError

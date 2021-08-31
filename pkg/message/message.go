@@ -71,7 +71,8 @@ You can customize the response by adding one of the following commands after tag
 	multipleDescriptionsJoinerFormat = "It might also be %s"
 	combineDescriptionAndOCRFormat   = "It contains the text: %s"
 	unsupportedLanguageFormat        = "I'm unable to support that language right now, sorry!"
-	unknownCommandFormat             = "I didn't understand your message, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
+	unknownCommandFormat             = "I didn't understand your message, but I appreciate the shoutout! Try \"@captions_please help\" to learn more"
+	userBlockedBotCommandFormat      = "I'm blocked from viewing the parent tweet, sorry!"
 )
 
 var errorMapping map[structured_error.ErrorType]string = map[structured_error.ErrorType]string{
@@ -82,6 +83,7 @@ var errorMapping map[structured_error.ErrorType]string = map[structured_error.Er
 	structured_error.OCRError:            noDescriptionsFormat,
 	structured_error.TranslateError:      noDescriptionsFormat,
 	structured_error.UnsupportedLanguage: unsupportedLanguageFormat,
+	structured_error.UserBlockedBot:      userBlockedBotCommandFormat,
 }
 
 func ErrorMessage(ctx context.Context, err structured_error.StructuredError) Localized {
@@ -187,6 +189,7 @@ var messages = [...]struct {
 	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
 	{"en", unsupportedLanguageFormat, unsupportedLanguageFormat},
 	{"en", unknownCommandFormat, unknownCommandFormat},
+	{"en", userBlockedBotCommandFormat, userBlockedBotCommandFormat},
 	{"de", helpCommandFormat, "Hilfe"},
 	{"de", altTextCommandFormat, "Alternativtext"},
 	{"de", ocrCommandFormat, "Text scannen"},

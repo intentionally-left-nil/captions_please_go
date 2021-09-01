@@ -9,6 +9,7 @@ const (
 	DuplicateTweet
 	TweetTooLong
 	UserBlockedBot
+	CaseOfTheMissingTweet
 	WrongMediaType
 	NoPhotosFound
 	OCRError

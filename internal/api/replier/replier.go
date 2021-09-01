@@ -3,6 +3,7 @@ package replier
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -22,6 +23,8 @@ type replierState struct {
 type replierCtxKey int
 
 const theReplierKey replierCtxKey = 0
+
+var after func(time.Duration) <-chan time.Time = time.After
 
 func WithReplier(ctx context.Context, client twitter.Twitter) (context.Context, error) {
 	err := message.LoadMessages()
@@ -62,6 +65,21 @@ func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 			remaining = append([]string{first, second}, remaining[1:]...)
 		}
 	}
+
+	if err != nil && err.Type() == structured_error.CaseOfTheMissingTweet {
+		// Sometimes, inexplicably we get this error in the middle of replying with a chain of tweets
+		// Best working theory is that twitter needs some time to catch-up to the tweets being created, so
+		// we'll wait and try one more time
+		select {
+		case <-ctx.Done():
+			// do nothing if the context gets closed before we're done waiting
+			logrus.Debug(fmt.Sprintf("%s: timeout before retrying CaseOfTheMissingTweet", tweet.Id))
+		case <-after(time.Second * 30):
+			logrus.Debug(fmt.Sprintf("%s retrying reply", tweet.Id))
+			nextTweet, err = client.TweetReply(ctx, tweet.Id, remaining[0])
+		}
+	}
+
 	if err != nil {
 		return ReplyResult{Err: err, ParentTweet: tweet, Remaining: remaining}
 	}

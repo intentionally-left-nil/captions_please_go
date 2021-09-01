@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -34,13 +35,15 @@ func TestReply(t *testing.T) {
 	anError := errors.New("oh no")
 	twitterError := structured_error.Wrap(anError, structured_error.TwitterError)
 	tooLongError := structured_error.Wrap(anError, structured_error.TweetTooLong)
+	missingTweetError := structured_error.Wrap(anError, structured_error.CaseOfTheMissingTweet)
 	invalidMessage := "\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98"
 	tests := []struct {
-		name      string
-		message   string
-		expected  []string
-		replyErrs []structured_error.StructuredError
-		result    ReplyResult
+		name              string
+		message           string
+		expected          []string
+		replyErrs         []structured_error.StructuredError
+		shouldCancelEarly bool
+		result            ReplyResult
 	}{
 		{
 			name:     "Replies with a message that fits in one tweet",
@@ -89,6 +92,36 @@ func TestReply(t *testing.T) {
 			replyErrs: []structured_error.StructuredError{tooLongError, nil, nil},
 			result:    ReplyResult{ParentTweet: &twitter.Tweet{Id: "3"}},
 		},
+		{
+			name:      "Retries the tweet with CaseOfTheMissingTweet response",
+			message:   "hello",
+			expected:  []string{"hello", "hello"},
+			replyErrs: []structured_error.StructuredError{missingTweetError, nil},
+			result:    ReplyResult{ParentTweet: &twitter.Tweet{Id: "2"}},
+		},
+		{
+			name:      "Times out trying to resend a CaseOfTheMissingTweet response",
+			message:   "hello",
+			expected:  []string{"hello"},
+			replyErrs: []structured_error.StructuredError{missingTweetError},
+			result: ReplyResult{
+				Err:         missingTweetError,
+				ParentTweet: &twitter.Tweet{Id: "0"},
+				Remaining:   []string{"hello"},
+			},
+			shouldCancelEarly: true,
+		},
+		{
+			name:      "Gives up after two CaseOfTheMissingTweets",
+			message:   "hello",
+			expected:  []string{"hello", "hello"},
+			replyErrs: []structured_error.StructuredError{missingTweetError, missingTweetError},
+			result: ReplyResult{
+				Err:         missingTweetError,
+				ParentTweet: &twitter.Tweet{Id: "0"},
+				Remaining:   []string{"hello"},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -100,7 +133,7 @@ func TestReply(t *testing.T) {
 				if test.replyErrs != nil &&
 					tweetId > 0 &&
 					test.replyErrs[tweetId-1] != nil &&
-					test.replyErrs[tweetId-1].Type() == structured_error.TweetTooLong {
+					(test.replyErrs[tweetId-1].Type() == structured_error.TweetTooLong || test.replyErrs[tweetId-1].Type() == structured_error.CaseOfTheMissingTweet) {
 					assert.Equal(t, tweetId-1, parentAsInt)
 				} else {
 					assert.Equal(t, tweetId, parentAsInt)
@@ -121,10 +154,30 @@ func TestReply(t *testing.T) {
 			defer leaktest.Check(t)()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+
+			originalAfter := after
+			defer func() {
+				after = originalAfter
+			}()
+
+			after = func(d time.Duration) <-chan time.Time {
+				return time.After(time.Millisecond * 100)
+			}
+
+			var earlyTimer *time.Timer
+
+			if test.shouldCancelEarly {
+				earlyTimer = time.AfterFunc(time.Millisecond*50, cancel)
+			}
+
 			ctx, err := WithReplier(ctx, mockTwitter)
 			assert.NoError(t, err)
 			tweet := &twitter.Tweet{Id: "0"}
 			result := Reply(ctx, tweet, message.Unlocalized(test.message))
+
+			if earlyTimer != nil {
+				earlyTimer.Stop()
+			}
 			if test.result.Err == nil {
 				assert.NoError(t, result.Err)
 			} else {

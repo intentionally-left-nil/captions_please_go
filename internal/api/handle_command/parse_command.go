@@ -8,20 +8,18 @@ import (
 	"golang.org/x/text/language"
 )
 
-type directive string
-
-const (
-	autoDirective     directive = "auto"
-	helpDirective     directive = "help"
-	altTextDirective  directive = "altText"
-	ocrDirective      directive = "ocr"
-	describeDirective directive = "describe"
-	unknownDirective  directive = "unknown"
-)
-
 type command struct {
-	directive directive
-	tag       language.Tag
+	auto     bool
+	help     bool
+	altText  bool
+	ocr      bool
+	describe bool
+	unknown  bool
+	tag      language.Tag
+}
+
+func (c *command) isEmpty() bool {
+	return !(c.auto || c.help || c.altText || c.ocr || c.describe || c.unknown)
 }
 
 func parseCommand(message string) command {
@@ -36,76 +34,86 @@ func parseCommand(message string) command {
 
 	c = parseEnglish(tokens)
 	if c == nil {
-		c = &command{directive: unknownDirective, tag: language.English}
+		c = &command{unknown: true, tag: language.English}
 	}
 	return *c
 }
 
 func parseGerman(tokens []string) *command {
-	var c *command
-	if len(tokens) > 0 {
-		dir, _ := parseGermanDirective(tokens)
-		if dir != nil {
-			c = &command{tag: language.German, directive: *dir}
-		}
+	c := &command{tag: language.German}
+	tokens = parseGermanRemoveModifiers(tokens)
+	parseGermanDirectives(c, tokens)
+	if c.isEmpty() {
+		c = nil
 	}
 	return c
 }
 
-func parseGermanDirective(tokens []string) (*directive, []string) {
-	var d *directive
-	remainder := tokens
-	if len(tokens) >= 1 {
-		switch tokens[0] {
-		case "hilfe":
-			dir := helpDirective
-			d = &dir
-			remainder = remainder[1:]
-		case "alternativtext":
-			dir := altTextDirective
-			d = &dir
-			remainder = remainder[1:]
-		case "scannen":
-			dir := ocrDirective
-			d = &dir
-			remainder = remainder[1:]
-		case "beschreiben":
-			dir := describeDirective
-			d = &dir
-			remainder = remainder[1:]
-		case "text":
-			{
-				if len(tokens) >= 2 {
-					d, remainder = parseGermanDirective(tokens[1:])
-				}
-			}
+func parseGermanRemoveModifiers(tokens []string) []string {
+	filtered := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		switch token {
+		case "und":
+		case "das":
+		default:
+			filtered = append(filtered, token)
 		}
 	}
-	return d, remainder
+	return filtered
+}
+
+func parseGermanDirectives(c *command, tokens []string) (remainder []string) {
+	if len(tokens) >= 1 {
+		foundToken := true
+		switch tokens[0] {
+		case "hilfe":
+			c.help = true
+		case "alternativtext":
+			c.altText = true
+		case "scannen":
+			c.ocr = true
+		case "beschreiben":
+			c.describe = true
+		case "text":
+		default:
+			foundToken = false
+		}
+
+		if foundToken {
+			remainder = parseGermanDirectives(c, tokens[1:])
+		}
+	} else {
+		remainder = tokens
+	}
+	return remainder
 }
 
 func parseEnglish(tokens []string) *command {
-	var c *command
+	c := &command{}
 	if len(tokens) == 0 {
 		// Special case for English - no text == auto in english
-		c = &command{directive: autoDirective, tag: language.English}
+		c = &command{auto: true, tag: language.English}
 	} else {
 		remainder := parseEnglishRemoveModifiers(tokens)
 		tag, remainder := parseEnglishLang(remainder)
-		dir, remainder := parseEnglishDirective(remainder)
+		remainder = parseEnglishDirectives(c, remainder)
+
 		if tag == nil {
 			tag, _ = parseEnglishLang(remainder)
 		}
+		if tag == nil {
+			tag = &language.English
+		}
+		c.tag = *tag
 
 		// Special case for English,tag but no directive = auto in that language
-		if dir == nil && tag != nil {
-			c = &command{directive: autoDirective, tag: *tag}
-		} else if dir != nil {
-			if tag == nil {
-				tag = &language.English
-			}
-			c = &command{tag: *tag, directive: *dir}
+		if c.isEmpty() && tag != nil && len(remainder) == 0 {
+			c = &command{auto: true, tag: *tag}
 		}
+	}
+
+	if c.isEmpty() {
+		c = nil
 	}
 	return c
 }
@@ -123,51 +131,48 @@ func parseEnglishRemoveModifiers(tokens []string) []string {
 	return filtered
 }
 
-func parseEnglishDirective(tokens []string) (*directive, []string) {
-	var d *directive
-	remainder := tokens
+func parseEnglishDirectives(c *command, tokens []string) (remainder []string) {
+	remainder = tokens
 	if len(tokens) >= 1 {
+		foundToken := true
 		switch tokens[0] {
 		case "help":
-			dir := helpDirective
-			d = &dir
+			c.help = true
 			remainder = remainder[1:]
 		case "auto":
-			dir := autoDirective
-			d = &dir
+			c.auto = true
 			remainder = remainder[1:]
 		case "text":
 			fallthrough
 		case "ocr":
-			dir := ocrDirective
-			d = &dir
+			c.ocr = true
 			remainder = remainder[1:]
 		case "describe":
 			fallthrough
 		case "caption":
-			dir := describeDirective
-			d = &dir
+			c.describe = true
 			remainder = remainder[1:]
 		case "alttext":
 			fallthrough
 		case "alt_text":
-			dir := altTextDirective
-			d = &dir
+			c.altText = true
 			remainder = remainder[1:]
 		case "alt":
 			if len(tokens) >= 2 && tokens[1] == "text" {
-				dir := altTextDirective
-				d = &dir
+				c.altText = true
 				remainder = remainder[2:]
 			}
 		case "get":
-			if len(tokens) >= 2 {
-				d, remainder = parseEnglishDirective(tokens[1:])
-			}
+			remainder = remainder[1:]
+		default:
+			foundToken = false
+		}
+		if foundToken {
+			remainder = parseEnglishDirectives(c, remainder)
 		}
 	}
 
-	return d, remainder
+	return remainder
 }
 
 func parseEnglishLang(tokens []string) (*language.Tag, []string) {

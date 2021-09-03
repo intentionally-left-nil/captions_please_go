@@ -14,123 +14,131 @@ func TestParseCommand(t *testing.T) {
 	}{
 		{
 			command:  "",
-			expected: command{directive: autoDirective, tag: language.English},
+			expected: command{auto: true, tag: language.English},
 		},
 		{
 			command:  " ",
-			expected: command{directive: autoDirective, tag: language.English},
+			expected: command{auto: true, tag: language.English},
 		},
 		{
 			command:  "this is some random text",
-			expected: command{directive: unknownDirective, tag: language.English},
-		},
-		{
-			command:  "the",
-			expected: command{directive: unknownDirective, tag: language.English},
+			expected: command{unknown: true, tag: language.English},
 		},
 		{
 			command:  "in english",
-			expected: command{directive: autoDirective, tag: language.English},
+			expected: command{auto: true, tag: language.English},
 		},
 		{
 			command:  "in en",
-			expected: command{directive: autoDirective, tag: language.English},
+			expected: command{auto: true, tag: language.English},
 		},
 		{
 			command:  "in en-US",
-			expected: command{directive: autoDirective, tag: language.AmericanEnglish},
+			expected: command{auto: true, tag: language.AmericanEnglish},
 		},
 		{
 			command:  "in german",
-			expected: command{directive: autoDirective, tag: language.German},
+			expected: command{auto: true, tag: language.German},
 		},
 		{
 			command:  "in de",
-			expected: command{directive: autoDirective, tag: language.German},
+			expected: command{auto: true, tag: language.German},
 		},
 		{
 			command:  "Help",
-			expected: command{directive: helpDirective, tag: language.English},
+			expected: command{help: true, tag: language.English},
 		},
 		{
 			command:  "ocr",
-			expected: command{directive: ocrDirective, tag: language.English},
+			expected: command{ocr: true, tag: language.English},
 		},
 		{
 			command:  "text",
-			expected: command{directive: ocrDirective, tag: language.English},
+			expected: command{ocr: true, tag: language.English},
 		},
 		{
 			command:  "get text",
-			expected: command{directive: ocrDirective, tag: language.English},
+			expected: command{ocr: true, tag: language.English},
 		},
 		{
 			command:  "auto",
-			expected: command{directive: autoDirective, tag: language.English},
+			expected: command{auto: true, tag: language.English},
 		},
 		{
 			command:  "describe",
-			expected: command{directive: describeDirective, tag: language.English},
+			expected: command{describe: true, tag: language.English},
 		},
 		{
 			command:  "caption",
-			expected: command{directive: describeDirective, tag: language.English},
+			expected: command{describe: true, tag: language.English},
 		},
 		{
 			command:  "alt_text",
-			expected: command{directive: altTextDirective, tag: language.English},
+			expected: command{altText: true, tag: language.English},
 		},
 		{
 			command:  "AltText",
-			expected: command{directive: altTextDirective, tag: language.English},
+			expected: command{altText: true, tag: language.English},
 		},
 		{
 			command:  "alt text",
-			expected: command{directive: altTextDirective, tag: language.English},
+			expected: command{altText: true, tag: language.English},
 		},
 		{
 			command:  "alt text in english",
-			expected: command{directive: altTextDirective, tag: language.English},
+			expected: command{altText: true, tag: language.English},
+		},
+		{
+			command:  "get text and describe",
+			expected: command{ocr: true, describe: true, tag: language.English},
+		},
+		{
+			command:  "alt text, get text, and describe in english",
+			expected: command{ocr: true, altText: true, describe: true, tag: language.English},
 		},
 		{
 			command:  "alt text in german",
-			expected: command{directive: altTextDirective, tag: language.German},
+			expected: command{altText: true, tag: language.German},
 		},
 		{
 			command:  "alttext in german",
-			expected: command{directive: altTextDirective, tag: language.German},
+			expected: command{altText: true, tag: language.German},
 		},
 		{
 			command:  "in german, alt text",
-			expected: command{directive: altTextDirective, tag: language.German},
+			expected: command{altText: true, tag: language.German},
 		},
 		{
 			command:  "in german, get alt text",
-			expected: command{directive: altTextDirective, tag: language.German},
+			expected: command{altText: true, tag: language.German},
 		},
 		{
 			command:  "hilfe",
-			expected: command{directive: helpDirective, tag: language.German},
+			expected: command{help: true, tag: language.German},
 		},
 		{
 			command:  "AlternativText",
-			expected: command{directive: altTextDirective, tag: language.German},
+			expected: command{altText: true, tag: language.German},
+		},
+		{
+			command:  "Scannen und beschreiben",
+			expected: command{ocr: true, describe: true, tag: language.German},
 		},
 		{
 			command:  "Scannen",
-			expected: command{directive: ocrDirective, tag: language.German},
+			expected: command{ocr: true, tag: language.German},
 		},
 		{
 			command:  "Text scannen",
-			expected: command{directive: ocrDirective, tag: language.German},
+			expected: command{ocr: true, tag: language.German},
 		},
 		{
 			command:  "beschreiben",
-			expected: command{directive: describeDirective, tag: language.German},
+			expected: command{describe: true, tag: language.German},
 		},
 		{
 			command:  "Text beschreiben",
-			expected: command{directive: describeDirective, tag: language.German},
+			expected: command{describe: true, tag: language.German},
 		},
 	}
 

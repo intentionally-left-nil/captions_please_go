@@ -3,12 +3,10 @@ package handle_command
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
-	"github.com/sirupsen/logrus"
 )
 
 func Command(ctx context.Context, toParse string, job common.ActivityJob) common.ActivityResult {
@@ -21,24 +19,22 @@ func Command(ctx context.Context, toParse string, job common.ActivityJob) common
 	}()
 
 	command := parseCommand(toParse)
-	logrus.Debug(fmt.Sprintf("%s: Directive %s for language %v", job.Tweet.Id, command.directive, command.tag))
 	ctx = message.WithLanguage(ctx, command.tag)
 
 	var result common.ActivityResult
-	switch command.directive {
-	case autoDirective:
+	if command.auto {
 		result = HandleAuto(ctx, job.Tweet)
-	case altTextDirective:
+	} else if command.altText {
 		result = HandleAltText(ctx, job.Tweet)
-	case ocrDirective:
+	} else if command.ocr {
 		result = HandleOCR(ctx, job.Tweet)
-	case describeDirective:
+	} else if command.describe {
 		result = HandleDescribe(ctx, job.Tweet)
-	case helpDirective:
+	} else if command.help {
 		result = Help(ctx, job.Tweet)
-	case unknownDirective:
-		fallthrough
-	default:
+	} else if command.unknown {
+		result = Unknown(ctx, job.Tweet)
+	} else {
 		result = Unknown(ctx, job.Tweet)
 	}
 	didPanic = false

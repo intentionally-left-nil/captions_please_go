@@ -14,6 +14,10 @@ import (
 
 type Localized string
 
+func (l Localized) IsEmpty() bool {
+	return string(l) == ""
+}
+
 type messageCtxKey int
 
 const theMessageKey messageCtxKey = 0
@@ -66,10 +70,13 @@ You can customize the response by adding one of the following commands after tag
 	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
 	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"
 	imageLabelFormat                 = "Image %d: %s"
+	hasAltTextFormat                 = "%s says it's %s"
 	noAltTextFormat                  = "%s didn't provide any alt text when posting the image"
 	noDescriptionsFormat             = "I'm at a loss for words, sorry!"
 	multipleDescriptionsJoinerFormat = "It might also be %s"
-	combineDescriptionAndOCRFormat   = "It contains the text: %s"
+	addBotErrorFormat                = "However; %s"
+	addDescriptionFormat             = "I think it's %s"
+	addOCRFormat                     = "It contains the text: %s"
 	unsupportedLanguageFormat        = "I'm unable to support that language right now, sorry!"
 	unknownCommandFormat             = "I didn't understand your message, but I appreciate the shoutout! Try \"@captions_please help\" to learn more"
 	userBlockedBotCommandFormat      = "I'm blocked from viewing the parent tweet, sorry!"
@@ -118,8 +125,13 @@ func UnknownCommandMessage(ctx context.Context) Localized {
 func LabelImage(ctx context.Context, description Localized, index int) Localized {
 	return sprintf(ctx, imageLabelFormat, index+1, description)
 }
+
 func NoAltText(ctx context.Context, userDisplayName string) Localized {
 	return sprintf(ctx, noAltTextFormat, userDisplayName)
+}
+
+func HasAltText(ctx context.Context, userDisplayName string, altText string) Localized {
+	return sprintf(ctx, hasAltTextFormat, userDisplayName, altText)
 }
 
 func CombineMessages(messages []Localized, joiner string) Localized {
@@ -143,8 +155,18 @@ func CombineDescriptions(ctx context.Context, descriptions []string) Localized {
 	return CombineMessages(messages, ". ")
 }
 
-func CombineDescriptionAndOCR(ctx context.Context, description Localized, ocr Localized) Localized {
-	messages := []Localized{description, sprintf(ctx, combineDescriptionAndOCRFormat, ocr)}
+func AddDescription(ctx context.Context, altText Localized, description Localized) Localized {
+	messages := []Localized{altText, sprintf(ctx, addDescriptionFormat, description)}
+	return CombineMessages(messages, ". ")
+}
+
+func AddBotError(ctx context.Context, altText Localized, err structured_error.StructuredError) Localized {
+	errMessage := ErrorMessage(ctx, err)
+	return sprintf(ctx, addBotErrorFormat, errMessage)
+}
+
+func AddOCR(ctx context.Context, description Localized, ocr Localized) Localized {
+	messages := []Localized{description, sprintf(ctx, addOCRFormat, ocr)}
 	return CombineMessages(messages, ". ")
 }
 
@@ -184,9 +206,12 @@ var messages = [...]struct {
 	{"en", wrongMediaFormat, wrongMediaFormat},
 	{"en", imageLabelFormat, catalog.String("Image %[1]d: %[2]s")},
 	{"en", noAltTextFormat, catalog.String("%[1]s didn't provide any alt text when posting the image")},
+	{"en", hasAltTextFormat, catalog.String("%[1]s says it's %[2]s")},
+	{"en", addBotErrorFormat, catalog.String("However; %[1]s")},
 	{"en", noDescriptionsFormat, noDescriptionsFormat},
 	{"en", multipleDescriptionsJoinerFormat, catalog.String("It might also be %[1]s")},
-	{"en", combineDescriptionAndOCRFormat, catalog.String("It contains the text: %[1]s")},
+	{"en", addDescriptionFormat, catalog.String("I think it's %[1]s")},
+	{"en", addOCRFormat, catalog.String("It contains the text: %[1]s")},
 	{"en", unsupportedLanguageFormat, unsupportedLanguageFormat},
 	{"en", unknownCommandFormat, unknownCommandFormat},
 	{"en", userBlockedBotCommandFormat, userBlockedBotCommandFormat},

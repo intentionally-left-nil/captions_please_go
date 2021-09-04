@@ -48,11 +48,10 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 		jobs:   make(chan common.ActivityJob, config.MaxOutstandingJobs),
 	}
 	ctx = context.WithValue(ctx, theActivityStateKey, state)
-	ctx = handle_command.WithAltText(ctx, client)
-	ctx = handle_command.WithAuto(ctx, client)
-	ctx, err = handle_command.WithOCR(ctx, client)
+	ctx = handle_command.WithHandleCommand(ctx, client)
+	ctx, err = handle_command.WithOCR(ctx)
 	if err == nil {
-		ctx, err = handle_command.WithDescribe(ctx, client)
+		ctx, err = handle_command.WithDescribe(ctx)
 	}
 	if err == nil {
 		ctx, err = replier.WithReplier(ctx, client)
@@ -171,8 +170,8 @@ func handleNewTweetActivity(ctx context.Context, job common.ActivityJob) common.
 	if job.Tweet.Type == twitter.Retweet {
 		return common.ActivityResult{Tweet: job.Tweet, Action: "Not responding to a retweet"}
 	}
-	command := getCommand(job.Tweet, botMention)
-	return handle_command.Command(ctx, command, job)
+	commandMessage := getCommand(job.Tweet, botMention)
+	return handle_command.HandleCommand(ctx, commandMessage, job.Tweet)
 }
 
 func getVisibleMention(botId string, tweet *twitter.Tweet) *twitter.Mention {

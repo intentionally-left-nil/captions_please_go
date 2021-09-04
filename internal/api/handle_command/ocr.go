@@ -19,7 +19,6 @@ const theOcrKey ocrKey = 0
 
 type ocrState struct {
 	google vision.OCR
-	client twitter.Twitter
 }
 
 type ocrJobResult struct {
@@ -28,12 +27,11 @@ type ocrJobResult struct {
 	err   structured_error.StructuredError
 }
 
-func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, error) {
+func WithOCR(ctx context.Context) (context.Context, error) {
 	secrets := common.GetSecrets(ctx)
 	google, err := vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 	state := &ocrState{
 		google: google,
-		client: client,
 	}
 
 	go func() {
@@ -43,14 +41,7 @@ func WithOCR(ctx context.Context, client twitter.Twitter) (context.Context, erro
 	return setOCRState(ctx, state), err
 }
 
-func HandleOCR(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
-	state := getOCRState(ctx)
-	response := combineAndSendResponses(ctx, state.client, tweet, getOCRMediaResponse)
-	response.Action = "reply with OCR"
-	return response
-}
-
-func getOCRMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
+func getOCRMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse {
 	state := getOCRState(ctx)
 	wg := sync.WaitGroup{}
 	wg.Add(len(mediaTweet.Media))

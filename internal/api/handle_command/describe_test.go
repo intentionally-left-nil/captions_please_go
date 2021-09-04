@@ -4,19 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
-	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	vision_test "github.com/AnilRedshift/captions_please_go/pkg/vision/test"
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/text/language"
 )
 
@@ -26,8 +24,7 @@ func TestWithDescribe(t *testing.T) {
 	defer cancel()
 	secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert, AzureComputerVisionKey: "123"}
 	ctx = common.SetSecrets(ctx, secrets)
-	mockTwitter := twitter_test.MockTwitter{T: t}
-	ctx, err := WithDescribe(ctx, &mockTwitter)
+	ctx, err := WithDescribe(ctx)
 	assert.NoError(t, err)
 	state := getDescriberState(ctx)
 	assert.NotNil(t, state)
@@ -39,24 +36,19 @@ func TestWithDescribeHandlesGoogleFailure(t *testing.T) {
 	defer cancel()
 	secrets := &common.Secrets{GooglePrivateKeySecret: "a bad cert", AzureComputerVisionKey: "123"}
 	ctx = common.SetSecrets(ctx, secrets)
-	mockTwitter := twitter_test.MockTwitter{T: t}
-	_, err := WithDescribe(ctx, &mockTwitter)
+	_, err := WithDescribe(ctx)
 	assert.Error(t, err)
 
 }
 
-func TestHandleDescribe(t *testing.T) {
-	threeHundredChars := strings.Repeat("a", 300)
-
+func TestGetDescribeMediaResponse(t *testing.T) {
 	user := twitter.User{Display: "Ada Bear", Id: "999", Username: "@ada_bear"}
 
 	onePhoto := []twitter.Media{{Type: "photo", Url: "photo.jpg"}}
-	longPhoto := []twitter.Media{{Type: "photo", Url: threeHundredChars}}
 	twoPhotos := []twitter.Media{{Type: "photo", Url: "photo1.jpg"}, {Type: "photo", Url: "photo2.jpg"}}
 	oneVideo := []twitter.Media{{Type: "video", Url: "video.mp4"}}
 	mixedMedia := []twitter.Media{{Type: "photo", Url: "photo.jpg"}, {Type: "video", Url: "video.mp4"}}
 	tweetWithOnePhoto := twitter.Tweet{Id: "withOnePhoto", User: user, Media: onePhoto}
-	tweetWithLongPhoto := twitter.Tweet{Id: "withOneLongPhoto", User: user, Media: longPhoto}
 	tweetWithTwoPhotos := twitter.Tweet{Id: "withTwoPhotos", User: user, Media: twoPhotos}
 	tweetWithMixedMedia := twitter.Tweet{Id: "withMixedMedia", User: user, Media: mixedMedia}
 	tweetWithOneVideo := twitter.Tweet{Id: "withOneVideo", User: user, Media: oneVideo}
@@ -70,14 +62,13 @@ func TestHandleDescribe(t *testing.T) {
 		confidences  []float32
 		azureErr     error
 		translateErr error
-		messages     []string
-		hasErr       bool
+		expected     []mediaResponse
 	}{
 		{
 			name:        "Returns a single description",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8},
-			messages:    []string{"photo.jpg is so pretty(0.8)"},
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo.jpg is so pretty(0.8)")}},
 		},
 		{
 			name:        "Returns a single description in the users language",
@@ -85,43 +76,43 @@ func TestHandleDescribe(t *testing.T) {
 			azureErr:    wrongLangErr,
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8},
-			messages:    []string{"<translated photo.jpg is so pretty(0.8) />"},
-		},
-		{
-			name:        "Splits a long description into multiple tweets",
-			tweet:       &tweetWithLongPhoto,
-			confidences: []float32{0.8},
-			messages:    []string{threeHundredChars[:280], threeHundredChars[280:] + " is so pretty(0.8)"},
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("<translated photo.jpg is so pretty(0.8) />")}},
 		},
 		{
 			name:        "Returns two descriptions for an image",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8, 0.6},
-			messages:    []string{"photo.jpg is so pretty(0.8). It might also be photo.jpg is so pretty(0.6)"},
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo.jpg is so pretty(0.8). It might also be photo.jpg is so pretty(0.6)")}},
 		},
 		{
 			name:        "Returns three descriptions for an image",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8, 0.6, 0.5},
-			messages:    []string{"photo.jpg is so pretty(0.8). It might also be photo.jpg is so pretty(0.6). It might also be photo.jpg is so pretty(0.5)"},
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo.jpg is so pretty(0.8). It might also be photo.jpg is so pretty(0.6). It might also be photo.jpg is so pretty(0.5)")}},
 		},
 		{
 			name:        "Responds with the description for two photos",
 			tweet:       &tweetWithTwoPhotos,
 			confidences: []float32{0.8, 0.7},
-			messages:    []string{"Image 1: photo1.jpg is so pretty(0.8). It might also be photo1.jpg is so pretty(0.7)\nImage 2: photo2.jpg is so pretty(0.8). It might also be photo2.jpg is so pretty(0.7)"},
+			expected: []mediaResponse{
+				{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo1.jpg is so pretty(0.8). It might also be photo1.jpg is so pretty(0.7)")},
+				{index: 1, responseType: foundVisionResponse, reply: message.Unlocalized("photo2.jpg is so pretty(0.8). It might also be photo2.jpg is so pretty(0.7)")},
+			},
 		},
 		{
 			name:        "Responds with the description of a photo, ignoring non-photos",
 			tweet:       &tweetWithMixedMedia,
 			confidences: []float32{0.8},
-			messages:    []string{"photo.jpg is so pretty(0.8)"},
+			expected: []mediaResponse{
+				{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo.jpg is so pretty(0.8)")},
+				{index: 1, responseType: doNothingResponse},
+			},
 		},
 		{
 			name:        "Ignores low confidence suggestions",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8, 0.1},
-			messages:    []string{"photo.jpg is so pretty(0.8)"},
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, reply: message.Unlocalized("photo.jpg is so pretty(0.8)")}},
 		},
 		{
 			name:         "Returns unsupported error message if translating fails",
@@ -130,29 +121,25 @@ func TestHandleDescribe(t *testing.T) {
 			translateErr: translateErr,
 			tweet:        &tweetWithOnePhoto,
 			confidences:  []float32{0.8},
-			messages:     []string{"I'm at a loss for words, sorry!"},
-			hasErr:       true,
+			expected:     []mediaResponse{{index: 0, responseType: foundVisionResponse, err: translateErr}},
 		},
 		{
 			name:        "Returns error message if everything is low-confidence",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.1, 0.1},
-			messages:    []string{"I'm at a loss for words, sorry!"},
-			hasErr:      true,
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, err: structured_error.Wrap(errors.New("low confidences"), structured_error.DescribeError)}},
 		},
 		{
 			name:        "Returns error message if azure fails",
 			tweet:       &tweetWithOnePhoto,
 			confidences: []float32{0.8},
 			azureErr:    errors.New("Lock the taskbar, lock the taskbar"),
-			messages:    []string{"I'm at a loss for words, sorry!"},
-			hasErr:      true,
+			expected:    []mediaResponse{{index: 0, responseType: foundVisionResponse, err: structured_error.Wrap(errors.New("lock the taskbar, lock the taskbar"), structured_error.DescribeError)}},
 		},
 		{
 			name:     "Lets the user know there aren't any photos to decode",
 			tweet:    &tweetWithOneVideo,
-			messages: []string{"I only know how to interpret photos right now, sorry!"},
-			hasErr:   true,
+			expected: []mediaResponse{{index: 0, responseType: doNothingResponse}},
 		},
 	}
 	for _, test := range tests {
@@ -160,13 +147,6 @@ func TestHandleDescribe(t *testing.T) {
 			defer leaktest.Check(t)()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
-			sentMessages := []string{}
-			mockTwitter := twitter_test.MockTwitter{T: t, TweetReplyMock: func(tweetID, message string) (*twitter.Tweet, error) {
-				tweet := twitter.Tweet{Id: "123"}
-				sentMessages = append(sentMessages, message)
-				return &tweet, nil
-			}}
 
 			mockAzure := vision_test.MockAzure{T: t, DescribeMock: func(url string) ([]vision.VisionResult, error) {
 				results := make([]vision.VisionResult, len(test.confidences))
@@ -183,25 +163,28 @@ func TestHandleDescribe(t *testing.T) {
 			}}
 
 			state := describeState{
-				client:     &mockTwitter,
 				describer:  &mockAzure,
 				translator: &mockGoogle,
 			}
 
 			ctx = setDescribeState(ctx, &state)
-			ctx, err := replier.WithReplier(ctx, &mockTwitter)
 
 			if test.lang != nil {
 				ctx = message.WithLanguage(ctx, *test.lang)
 			}
-			assert.NoError(t, err)
-			result := HandleDescribe(ctx, test.tweet)
-			if test.hasErr {
-				assert.Error(t, result.Err)
-			} else {
-				assert.NoError(t, result.Err)
+			result := getDescribeMediaResponse(ctx, test.tweet)
+			assert.Equal(t, len(test.expected), len(result))
+			for i, expectedMessage := range test.expected {
+				if expectedMessage.err == nil {
+					assert.Equal(t, expectedMessage, result[i])
+				} else {
+					require.Error(t, result[i].err)
+					assert.Equal(t, expectedMessage.err.Type(), result[i].err.Type())
+					assert.Equal(t, expectedMessage.index, result[i].index)
+					assert.Equal(t, expectedMessage.reply, result[i].reply)
+					assert.Equal(t, expectedMessage.responseType, result[i].responseType)
+				}
 			}
-			assert.Equal(t, test.messages, sentMessages)
 		})
 	}
 }

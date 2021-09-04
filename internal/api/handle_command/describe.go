@@ -22,7 +22,6 @@ const theDescribeKey describeKey = 0
 type describeState struct {
 	describer  vision.Describer
 	translator vision.Translator
-	client     twitter.Twitter
 }
 
 type visionJobResult struct {
@@ -33,7 +32,7 @@ type visionJobResult struct {
 
 const lowVisionConfidenceCutoff = 0.25
 
-func WithDescribe(ctx context.Context, client twitter.Twitter) (context.Context, error) {
+func WithDescribe(ctx context.Context) (context.Context, error) {
 	secrets := common.GetSecrets(ctx)
 	translator, err := vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 	if err != nil {
@@ -42,7 +41,6 @@ func WithDescribe(ctx context.Context, client twitter.Twitter) (context.Context,
 	describer := vision.NewAzureVision(secrets.AzureComputerVisionKey)
 	state := describeState{
 		describer:  describer,
-		client:     client,
 		translator: translator,
 	}
 	go func() {
@@ -60,14 +58,7 @@ func getDescriberState(ctx context.Context) *describeState {
 	return ctx.Value(theDescribeKey).(*describeState)
 }
 
-func HandleDescribe(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
-	state := getDescriberState(ctx)
-	response := combineAndSendResponses(ctx, state.client, tweet, getDescribeMediaResponse)
-	response.Action = "reply with description"
-	return response
-}
-
-func getDescribeMediaResponse(ctx context.Context, tweet *twitter.Tweet, mediaTweet *twitter.Tweet) []mediaResponse {
+func getDescribeMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse {
 	state := getDescriberState(ctx)
 
 	wg := sync.WaitGroup{}

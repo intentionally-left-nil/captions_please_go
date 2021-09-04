@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
+	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
-	twitter_test "github.com/AnilRedshift/captions_please_go/pkg/twitter/test"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	vision_test "github.com/AnilRedshift/captions_please_go/pkg/vision/test"
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithOCR(t *testing.T) {
@@ -21,8 +21,7 @@ func TestWithOCR(t *testing.T) {
 	defer cancel()
 	secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
 	ctx = common.SetSecrets(ctx, secrets)
-	mockTwitter := twitter_test.MockTwitter{T: t}
-	ctx, err := WithOCR(ctx, &mockTwitter)
+	ctx, err := WithOCR(ctx)
 	assert.NoError(t, err)
 	state := getOCRState(ctx)
 	assert.NotNil(t, state)
@@ -39,40 +38,47 @@ func TestHandleOCR(t *testing.T) {
 	tweetWithOneVideo := twitter.Tweet{Id: "withOneVideo", User: user, Media: oneVideo}
 	tweetWithTwoPhotos := twitter.Tweet{Id: "withTwoPhotos", User: user, Media: twoPhotos}
 	tweetWithMixedMedia := twitter.Tweet{Id: "withMixedMedia", User: user, Media: mixedMedia}
+
+	googleErr := errors.New("google fired another good engineer now their code is broken")
 	tests := []struct {
 		name      string
 		tweet     *twitter.Tweet
 		googleErr error
-		messages  []string
-		hasErr    bool
+		expected  []mediaResponse
 	}{
 		{
 			name:     "Responds with the OCR of a single image",
 			tweet:    &tweetWithOnePhoto,
-			messages: []string{"ocr response for photo.jpg"},
+			expected: []mediaResponse{{index: 0, responseType: foundOCRResponse, reply: "ocr response for photo.jpg"}},
 		},
 		{
 			name:      "Responds with an error if OCR fails",
 			tweet:     &tweetWithTwoPhotos,
-			googleErr: errors.New("google fired another good engineer now their code is broken"),
-			messages:  []string{"Image 1: I'm at a loss for words, sorry!\nImage 2: I'm at a loss for words, sorry!"},
-			hasErr:    true,
+			googleErr: googleErr,
+			expected: []mediaResponse{
+				{index: 0, responseType: foundOCRResponse, err: structured_error.Wrap(googleErr, structured_error.OCRError)},
+				{index: 1, responseType: foundOCRResponse, err: structured_error.Wrap(googleErr, structured_error.OCRError)},
+			},
 		},
 		{
-			name:     "Responds with the OCR of multiple images",
-			tweet:    &tweetWithTwoPhotos,
-			messages: []string{"Image 1: ocr response for photo1.jpg\nImage 2: ocr response for photo2.jpg"},
+			name:  "Responds with the OCR of multiple images",
+			tweet: &tweetWithTwoPhotos,
+			expected: []mediaResponse{
+				{index: 0, responseType: foundOCRResponse, reply: "ocr response for photo1.jpg"},
+				{index: 1, responseType: foundOCRResponse, reply: "ocr response for photo2.jpg"},
+			},
 		},
 		{
-			name:     "Responds with the OCR for mixed media, ignoring non-photos",
-			tweet:    &tweetWithMixedMedia,
-			messages: []string{"ocr response for photo.jpg"},
+			name:  "Responds with the OCR for mixed media, ignoring non-photos",
+			tweet: &tweetWithMixedMedia,
+			expected: []mediaResponse{
+				{index: 0, responseType: foundOCRResponse, reply: "ocr response for photo.jpg"},
+				{index: 1, responseType: doNothingResponse}},
 		},
 		{
 			name:     "Lets the user know there aren't any photos to decode",
 			tweet:    &tweetWithOneVideo,
-			messages: []string{"I only know how to interpret photos right now, sorry!"},
-			hasErr:   true,
+			expected: []mediaResponse{{index: 0, responseType: doNothingResponse}},
 		},
 	}
 
@@ -81,12 +87,6 @@ func TestHandleOCR(t *testing.T) {
 			defer leaktest.Check(t)()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sentMessages := []string{}
-			mockTwitter := twitter_test.MockTwitter{T: t, TweetReplyMock: func(tweetID, message string) (*twitter.Tweet, error) {
-				tweet := twitter.Tweet{Id: "123"}
-				sentMessages = append(sentMessages, message)
-				return &tweet, nil
-			}}
 
 			mockGoogle := vision_test.MockGoogle{T: t, GetOCRMock: func(url string) (result *vision.OCRResult, err error) {
 				ocr := vision.OCRResult{Text: "ocr response for " + url}
@@ -94,20 +94,22 @@ func TestHandleOCR(t *testing.T) {
 			}}
 
 			state := ocrState{
-				client: &mockTwitter,
 				google: &mockGoogle,
 			}
 			ctx = setOCRState(ctx, &state)
-			ctx, err := replier.WithReplier(ctx, &mockTwitter)
-			assert.NoError(t, err)
-			result := HandleOCR(ctx, test.tweet)
-
-			if test.hasErr {
-				assert.Error(t, result.Err)
-			} else {
-				assert.NoError(t, result.Err)
+			result := getOCRMediaResponse(ctx, test.tweet)
+			assert.Equal(t, len(test.expected), len(result))
+			for i, expectedMessage := range test.expected {
+				if expectedMessage.err == nil {
+					assert.Equal(t, expectedMessage, result[i])
+				} else {
+					require.Error(t, result[i].err)
+					assert.Equal(t, expectedMessage.err.Type(), result[i].err.Type())
+					assert.Equal(t, expectedMessage.index, result[i].index)
+					assert.Equal(t, expectedMessage.reply, result[i].reply)
+					assert.Equal(t, expectedMessage.responseType, result[i].responseType)
+				}
 			}
-			assert.Equal(t, test.messages, sentMessages)
 		})
 	}
 }

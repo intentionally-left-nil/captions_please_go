@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
-	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/sirupsen/logrus"
 )
 
 func Help(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
-	result := replier.Reply(ctx, tweet, message.HelpMessage(ctx))
+	result := _reply(ctx, tweet, message.HelpMessage(ctx))
 	if result.Err != nil {
 		logrus.Info(fmt.Sprintf("%s: Replying with the help message failed with %v", tweet.Id, result.Err))
 	}
@@ -20,7 +19,7 @@ func Help(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
 }
 
 func Unknown(ctx context.Context, tweet *twitter.Tweet) common.ActivityResult {
-	result := replier.Reply(ctx, tweet, message.UnknownCommandMessage(ctx))
+	result := _reply(ctx, tweet, message.UnknownCommandMessage(ctx))
 	if result.Err != nil {
 		logrus.Info(fmt.Sprintf("%s: Replying with the unknown message failed with %v", tweet.Id, result.Err))
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/internal/api/replier"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
@@ -21,7 +20,7 @@ const (
 	missingAltTextResponse
 	foundOCRResponse
 	foundVisionResponse
-	mergedOCRVisionResponse
+	combinedResponse
 )
 
 type mediaResponse struct {
@@ -29,23 +28,6 @@ type mediaResponse struct {
 	responseType mediaResponseType
 	reply        message.Localized
 	err          structured_error.StructuredError
-}
-
-func combineAndSendResponses(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, getResponses func(context.Context, *twitter.Tweet, *twitter.Tweet) []mediaResponse) common.ActivityResult {
-	mediaTweet, err := findTweetWithMedia(ctx, client, tweet)
-	tweetToReplyTo := tweet
-	if err == nil {
-		responses := getResponses(ctx, tweet, mediaTweet)
-		combined := combineResponses(ctx, responses)
-		result := replier.Reply(ctx, tweet, combined)
-		if result.Err == nil {
-			return common.ActivityResult{Tweet: tweet, Err: combinedError(responses)}
-		}
-		err = result.Err
-		tweetToReplyTo = result.ParentTweet
-	}
-	replyWithError(ctx, tweetToReplyTo, err)
-	return common.ActivityResult{Tweet: tweet, Err: err}
 }
 
 func combinedError(responses []mediaResponse) structured_error.StructuredError {
@@ -57,7 +39,10 @@ func combinedError(responses []mediaResponse) structured_error.StructuredError {
 	return nil
 }
 
-func combineResponses(ctx context.Context, responses []mediaResponse) message.Localized {
+// used for mocking
+var _reply = replier.Reply
+
+func getReplyMessageFromResponses(ctx context.Context, responses []mediaResponse) message.Localized {
 	responses = removeDoNothings(responses)
 	if len(responses) == 0 {
 		responses = []mediaResponse{{err: structured_error.Wrap(errors.New("nothing to do when sending replies"), structured_error.NoPhotosFound)}}
@@ -82,7 +67,7 @@ func combineResponses(ctx context.Context, responses []mediaResponse) message.Lo
 
 func replyWithError(ctx context.Context, tweet *twitter.Tweet, err structured_error.StructuredError) {
 	message := message.ErrorMessage(ctx, err)
-	errResult := replier.Reply(ctx, tweet, message)
+	errResult := _reply(ctx, tweet, message)
 	if errResult.Err != nil {
 		logrus.Info(fmt.Sprintf("%s Tried to reply with %v but there was an error %v", tweet.Id, message, errResult.Err))
 	}

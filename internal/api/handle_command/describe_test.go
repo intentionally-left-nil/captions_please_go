@@ -157,9 +157,9 @@ func TestGetDescribeMediaResponse(t *testing.T) {
 				return results, test.azureErr
 			}}
 
-			mockGoogle := vision_test.MockGoogle{T: t, TranslateMock: func(message string) (string, error) {
+			mockGoogle := vision_test.MockGoogle{T: t, TranslateMock: func(message string) (language.Tag, string, error) {
 				translated := "<translated " + message + " />"
-				return translated, test.translateErr
+				return language.English, translated, test.translateErr
 			}}
 
 			state := describeState{

@@ -75,7 +75,7 @@ func getDescribeMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []
 					translatedResult := make([]vision.VisionResult, len(visionResult))
 					for i, result := range visionResult {
 						var translated string
-						translated, err = state.translator.Translate(ctx, result.Text)
+						_, translated, err = state.translator.Translate(ctx, result.Text)
 						if err != nil {
 							break
 						}

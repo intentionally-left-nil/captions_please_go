@@ -136,8 +136,9 @@ func translate(c *cli.Context) error {
 			translator, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 			if err == nil {
 				var result string
-				result, err = translator.Translate(ctx, c.String("message"))
+				tag, result, err = translator.Translate(ctx, c.String("message"))
 				if err == nil {
+					fmt.Println(tag.String())
 					fmt.Println(result)
 				}
 			}

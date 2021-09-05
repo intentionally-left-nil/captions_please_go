@@ -13,6 +13,7 @@ import (
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/text/language"
 )
 
 func TestWithOCR(t *testing.T) {
@@ -41,15 +42,40 @@ func TestHandleOCR(t *testing.T) {
 
 	googleErr := errors.New("google fired another good engineer now their code is broken")
 	tests := []struct {
-		name      string
-		tweet     *twitter.Tweet
-		googleErr error
-		expected  []mediaResponse
+		name         string
+		command      command
+		tweet        *twitter.Tweet
+		ocr          *vision.OCRResult
+		googleErr    error
+		translateErr error
+		expected     []mediaResponse
 	}{
 		{
 			name:     "Responds with the OCR of a single image",
 			tweet:    &tweetWithOnePhoto,
 			expected: []mediaResponse{{index: 0, responseType: foundOCRResponse, reply: "ocr response for photo.jpg"}},
+		},
+		{
+			name:     "Translates the response if the confidence is low",
+			command:  command{ocr: true, translate: true},
+			ocr:      &vision.OCRResult{Text: "ocr response for", Language: vision.OCRLanguage{Tag: language.English, Confidence: 0.3}},
+			tweet:    &tweetWithOnePhoto,
+			expected: []mediaResponse{{index: 0, responseType: foundOCRResponse, reply: "<translated ocr response for photo.jpg />"}},
+		},
+		{
+			name:     "Translates tho response into the requested language",
+			command:  command{ocr: true, translate: true},
+			ocr:      &vision.OCRResult{Text: "ocr response for", Language: vision.OCRLanguage{Tag: language.Spanish, Confidence: 0.8}},
+			tweet:    &tweetWithOnePhoto,
+			expected: []mediaResponse{{index: 0, responseType: foundOCRResponse, reply: "<translated ocr response for photo.jpg />"}},
+		},
+		{
+			name:         "Silently eats the translation error and returns the untranslated text",
+			command:      command{ocr: true, translate: true},
+			ocr:          &vision.OCRResult{Text: "ocr response for", Language: vision.OCRLanguage{Tag: language.Spanish, Confidence: 0.8}},
+			translateErr: googleErr,
+			tweet:        &tweetWithOnePhoto,
+			expected:     []mediaResponse{{index: 0, responseType: foundOCRResponse, reply: "ocr response for photo.jpg"}},
 		},
 		{
 			name:      "Responds with an error if OCR fails",
@@ -88,16 +114,29 @@ func TestHandleOCR(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			mockGoogle := vision_test.MockGoogle{T: t, GetOCRMock: func(url string) (result *vision.OCRResult, err error) {
-				ocr := vision.OCRResult{Text: "ocr response for " + url}
+			getOCRMock := func(url string) (result *vision.OCRResult, err error) {
+				var ocr vision.OCRResult
+				if test.ocr == nil {
+					ocr = vision.OCRResult{Text: "ocr response for " + url, Language: vision.OCRLanguage{Tag: language.English, Confidence: 1.0}}
+				} else {
+					ocr = *test.ocr
+					ocr.Text = ocr.Text + " " + url
+				}
 				return &ocr, test.googleErr
-			}}
+			}
+			transalteMock := func(message string) (language.Tag, string, error) {
+				translated := "<translated " + message + " />"
+				return language.English, translated, test.translateErr
+			}
+
+			mockGoogle := vision_test.MockGoogle{T: t, GetOCRMock: getOCRMock, TranslateMock: transalteMock}
 
 			state := ocrState{
-				google: &mockGoogle,
+				google:     &mockGoogle,
+				translator: &mockGoogle,
 			}
 			ctx = setOCRState(ctx, &state)
-			result := getOCRMediaResponse(ctx, test.tweet)
+			result := getOCRMediaResponse(ctx, test.command, test.tweet)
 			assert.Equal(t, len(test.expected), len(result))
 			for i, expectedMessage := range test.expected {
 				if expectedMessage.err == nil {

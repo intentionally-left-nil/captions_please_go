@@ -6,10 +6,11 @@ import (
 
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/text/language"
 )
 
 type OCRLanguage struct {
-	Code       string
+	Tag        language.Tag
 	Confidence float32
 }
 
@@ -33,7 +34,7 @@ type Describer interface {
 }
 
 type Translator interface {
-	Translate(ctx context.Context, message string) (string, structured_error.StructuredError)
+	Translate(ctx context.Context, message string) (language.Tag, string, structured_error.StructuredError)
 	Close() error
 }
 

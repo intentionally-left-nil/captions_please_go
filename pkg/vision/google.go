@@ -87,12 +87,12 @@ func (g *google) Close() error {
 	return translateErr
 }
 
-func (g *google) Translate(ctx context.Context, toTranslate string) (string, structured_error.StructuredError) {
+func (g *google) Translate(ctx context.Context, toTranslate string) (language.Tag, string, structured_error.StructuredError) {
+	var tag language.Tag
 	var translated string
 	var err error
 	g.loadSupportedLanguages(ctx)
 	if g.matcher != nil {
-		var tag language.Tag
 		tag, err = message.GetCompatibleLanguage(ctx, *g.matcher)
 		if err == nil {
 			var translations []translate.Translation
@@ -114,7 +114,7 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (string, str
 	if err != nil {
 		logrus.Debug(fmt.Sprintf("Translation failed with %v", err))
 	}
-	return translated, structured_error.Wrap(err, structured_error.TranslateError)
+	return tag, translated, structured_error.Wrap(err, structured_error.TranslateError)
 }
 
 func (g *google) loadSupportedLanguages(ctx context.Context) {
@@ -153,20 +153,23 @@ func getLanguage(pages []*pb.Page) OCRLanguage {
 
 	logrus.Debug(fmt.Sprintf("Languages %v\n", languages))
 
-	language := OCRLanguage{}
+	ocrLanguage := OCRLanguage{Tag: language.English, Confidence: 0.0}
 	for code, confidences := range languages {
-		var confidence float32 = 0.0
-		for _, val := range confidences {
-			confidence += val
-		}
-		confidence = confidence / float32(numPages)
-		if confidence > language.Confidence {
-			language.Code = code
-			language.Confidence = confidence
-		}
+		tag, err := language.Parse(code)
+		if err == nil {
 
+			var confidence float32 = 0.0
+			for _, val := range confidences {
+				confidence += val
+			}
+			confidence = confidence / float32(numPages)
+			if confidence > ocrLanguage.Confidence {
+				ocrLanguage.Tag = tag
+				ocrLanguage.Confidence = confidence
+			}
+		}
 	}
-	return language
+	return ocrLanguage
 }
 
 func getText(pages []*pb.Page) string {

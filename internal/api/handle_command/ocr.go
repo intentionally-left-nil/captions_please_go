@@ -3,6 +3,7 @@ package handle_command
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/text/language"
 )
 
 type ocrKey int
@@ -18,7 +21,8 @@ type ocrKey int
 const theOcrKey ocrKey = 0
 
 type ocrState struct {
-	google vision.OCR
+	google     vision.OCR
+	translator vision.Translator
 }
 
 type ocrJobResult struct {
@@ -31,7 +35,8 @@ func WithOCR(ctx context.Context) (context.Context, error) {
 	secrets := common.GetSecrets(ctx)
 	google, err := vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
 	state := &ocrState{
-		google: google,
+		google:     google,
+		translator: google.(vision.Translator),
 	}
 
 	go func() {
@@ -41,7 +46,7 @@ func WithOCR(ctx context.Context) (context.Context, error) {
 	return setOCRState(ctx, state), err
 }
 
-func getOCRMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse {
+func getOCRMediaResponse(ctx context.Context, command command, mediaTweet *twitter.Tweet) []mediaResponse {
 	state := getOCRState(ctx)
 	wg := sync.WaitGroup{}
 	wg.Add(len(mediaTweet.Media))
@@ -57,6 +62,24 @@ func getOCRMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []media
 				err = structured_error.Wrap(errors.New("media is not a photo"), structured_error.WrongMediaType)
 			} else {
 				ocrResult, err = state.google.GetOCR(ctx, media.Url)
+				if err == nil && command.translate {
+					shouldTranslate := ocrResult.Language.Confidence < 0.7
+					if !shouldTranslate {
+						desiredLanguage := message.GetLanguage(ctx)
+						matcher := language.NewMatcher([]language.Tag{desiredLanguage})
+						_, _, confidence := matcher.Match(ocrResult.Language.Tag)
+						shouldTranslate = confidence < language.High
+					}
+
+					if shouldTranslate {
+						translatedTag, translatedText, translatedErr := state.translator.Translate(ctx, ocrResult.Text)
+						if translatedErr == nil {
+							ocrResult = &vision.OCRResult{Text: translatedText, Language: vision.OCRLanguage{Tag: translatedTag, Confidence: 1.0}}
+						} else {
+							logrus.Error(fmt.Sprintf("Error %v trying to translate the OCR result", translatedErr))
+						}
+					}
+				}
 
 			}
 			jobs <- ocrJobResult{index: i, ocr: ocrResult, err: err}

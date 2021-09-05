@@ -85,13 +85,17 @@ func (a *azure) GetOCR(ctx context.Context, url string) (*OCRResult, structured_
 			}
 			builder.WriteString("\n\n")
 		}
-		language := ""
+
+		ocrLanguage := OCRLanguage{Tag: language.English, Confidence: 0.0}
 		if result.Language != nil {
-			language = *result.Language
+			tag, parseErr := language.Parse(*result.Language)
+			if parseErr == nil {
+				ocrLanguage = OCRLanguage{Tag: tag, Confidence: 1.0}
+			}
 		}
 		ocr = &OCRResult{
 			Text:     builder.String(),
-			Language: OCRLanguage{Code: language, Confidence: 1.0},
+			Language: ocrLanguage,
 		}
 	}
 	return ocr, structured_error.Wrap(err, structured_error.OCRError)

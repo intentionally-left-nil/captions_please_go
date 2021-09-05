@@ -362,7 +362,7 @@ func TestHandleCommand(t *testing.T) {
 			}()
 
 			getAltText = func(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse { return test.altText }
-			getOcr = func(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse { return test.ocr }
+			getOcr = func(ctx context.Context, command command, mediaTweet *twitter.Tweet) []mediaResponse { return test.ocr }
 			getDescription = func(ctx context.Context, mediaTweet *twitter.Tweet) []mediaResponse { return test.description }
 			findTweet = func(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet) (*twitter.Tweet, structured_error.StructuredError) {
 				// Golangs lack of generics are super-cool!

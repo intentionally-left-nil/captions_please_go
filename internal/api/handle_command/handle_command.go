@@ -103,7 +103,7 @@ func getResponses(ctx context.Context, command command, mediaTweet *twitter.Twee
 	}
 
 	if command.ocr || command.auto {
-		ocrResponses = getOcr(ctx, mediaTweet)
+		ocrResponses = getOcr(ctx, command, mediaTweet)
 	} else {
 		ocrResponses = doNothings(numMedia)
 	}

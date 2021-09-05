@@ -9,13 +9,14 @@ import (
 )
 
 type command struct {
-	auto     bool
-	help     bool
-	altText  bool
-	ocr      bool
-	describe bool
-	unknown  bool
-	tag      language.Tag
+	auto      bool
+	help      bool
+	altText   bool
+	ocr       bool
+	describe  bool
+	unknown   bool
+	translate bool
+	tag       language.Tag
 }
 
 func (c *command) isEmpty() bool {

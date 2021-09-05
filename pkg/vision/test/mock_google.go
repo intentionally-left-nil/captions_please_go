@@ -7,6 +7,7 @@ import (
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/vision"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/text/language"
 )
 
 const DummyGoogleCert = `-----BEGIN RSA PRIVATE KEY-----
@@ -40,7 +41,7 @@ vf2FL8Z20ZOKoy5CJ26qQiT87BwuL+GS7w+HzjYmCL39SE3QzxY+rs4=
 type MockGoogle struct {
 	T             *testing.T
 	GetOCRMock    func(url string) (result *vision.OCRResult, err error)
-	TranslateMock func(message string) (string, error)
+	TranslateMock func(message string) (language.Tag, string, error)
 }
 
 func (g *MockGoogle) GetOCR(ctx context.Context, url string) (*vision.OCRResult, structured_error.StructuredError) {
@@ -49,10 +50,10 @@ func (g *MockGoogle) GetOCR(ctx context.Context, url string) (*vision.OCRResult,
 	return result, structured_error.Wrap(err, structured_error.OCRError)
 }
 
-func (g *MockGoogle) Translate(ctx context.Context, message string) (string, structured_error.StructuredError) {
+func (g *MockGoogle) Translate(ctx context.Context, message string) (language.Tag, string, structured_error.StructuredError) {
 	assert.NotNil(g.T, g.TranslateMock)
-	result, err := g.TranslateMock(message)
-	return result, structured_error.Wrap(err, structured_error.TranslateError)
+	tag, result, err := g.TranslateMock(message)
+	return tag, result, structured_error.Wrap(err, structured_error.TranslateError)
 }
 
 func (g *MockGoogle) Close() error {

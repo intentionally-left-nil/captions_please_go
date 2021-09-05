@@ -61,12 +61,14 @@ const (
 	altTextUsageFormat       = "See what description the user gave when creating the tweet"
 	ocrUsageFormat           = "Scan the image for text"
 	describeUsageFormat      = "Use AI to create a description of the image"
+	translateUsageFormat     = "Automatically convert the result to the language code specified. (e.g. translate into ja-jp)"
 	helpUsageFormat          = `Tag @captions_please in a tweet to interpret the images.
 You can customize the response by adding one of the following commands after tagging me:`
 	helpCommandFormat                = "help"
 	altTextCommandFormat             = "alt text"
 	ocrCommandFormat                 = "get text"
 	describeCommandFormat            = "describe"
+	translateFormat                  = "translate"
 	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
 	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"
 	imageLabelFormat                 = "Image %d: %s"
@@ -106,6 +108,7 @@ func HelpMessage(ctx context.Context) Localized {
 		{altTextCommandFormat, altTextUsageFormat},
 		{ocrCommandFormat, ocrUsageFormat},
 		{describeCommandFormat, describeUsageFormat},
+		{translateFormat, translateUsageFormat},
 	}
 	builder := &strings.Builder{}
 	builder.WriteString(string(sprint(ctx, helpUsageFormat)))
@@ -202,6 +205,7 @@ var messages = [...]struct {
 	{"en", altTextCommandFormat, altTextCommandFormat},
 	{"en", ocrCommandFormat, ocrCommandFormat},
 	{"en", describeCommandFormat, describeCommandFormat},
+	{"en", translateFormat, translateFormat},
 	{"en", noPhotosFormat, noPhotosFormat},
 	{"en", wrongMediaFormat, wrongMediaFormat},
 	{"en", imageLabelFormat, catalog.String("Image %[1]d: %[2]s")},

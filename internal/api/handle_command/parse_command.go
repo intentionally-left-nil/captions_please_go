@@ -23,6 +23,18 @@ func (c *command) isEmpty() bool {
 	return !(c.auto || c.help || c.altText || c.ocr || c.describe || c.unknown)
 }
 
+func (c *command) String() string {
+	return fmt.Sprintf(`command{"auto": %v, "help": %v, "altText": %v, "ocr": %v, "describe": %v, "unknown": %v, "translate": %v, "tag" %s}`,
+		c.auto,
+		c.help,
+		c.altText,
+		c.ocr,
+		c.describe,
+		c.unknown,
+		c.translate,
+		c.tag.String())
+}
+
 func parseCommand(message string) command {
 	message = strings.TrimSpace(strings.ToLower(message))
 	message = strings.ReplaceAll(message, ",", "")
@@ -100,7 +112,7 @@ func parseEnglish(tokens []string) *command {
 		remainder = parseEnglishDirectives(c, remainder)
 
 		if tag == nil {
-			tag, _ = parseEnglishLang(remainder)
+			tag, remainder = parseEnglishLang(remainder)
 		}
 		if tag == nil {
 			tag = &language.English
@@ -109,7 +121,8 @@ func parseEnglish(tokens []string) *command {
 
 		// Special case for English,tag but no directive = auto in that language
 		if c.isEmpty() && tag != nil && len(remainder) == 0 {
-			c = &command{auto: true, tag: *tag}
+			// Note: Make sure to propagate the translate bit, as that can be set even if empty.
+			c = &command{auto: true, tag: *tag, translate: c.translate}
 		}
 	}
 
@@ -163,6 +176,9 @@ func parseEnglishDirectives(c *command, tokens []string) (remainder []string) {
 				c.altText = true
 				remainder = remainder[2:]
 			}
+		case "translate":
+			c.translate = true
+			remainder = remainder[1:]
 		case "get":
 			remainder = remainder[1:]
 		default:
@@ -179,7 +195,7 @@ func parseEnglishDirectives(c *command, tokens []string) (remainder []string) {
 func parseEnglishLang(tokens []string) (*language.Tag, []string) {
 	var tag *language.Tag
 	remainder := tokens
-	if len(tokens) >= 2 && tokens[0] == "in" {
+	if len(tokens) >= 2 && (tokens[0] == "in" || tokens[0] == "into") {
 		tag, remainder = parseTag(tokens[1:])
 	}
 	return tag, remainder

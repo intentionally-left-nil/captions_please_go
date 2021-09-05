@@ -3,11 +3,13 @@ package handle_command
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/AnilRedshift/captions_please_go/internal/api/common"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
 	"github.com/AnilRedshift/captions_please_go/pkg/twitter"
+	"github.com/sirupsen/logrus"
 )
 
 type commandCtxKey int
@@ -41,6 +43,7 @@ func HandleCommand(ctx context.Context, commandMessage string, tweet *twitter.Tw
 		}
 	}()
 	command := parseCommand(commandMessage)
+	logrus.Debug(fmt.Sprintf("running command %v", &command))
 	ctx = message.WithLanguage(ctx, command.tag)
 	result = handleCommand(ctx, command, tweet)
 	didPanic = false

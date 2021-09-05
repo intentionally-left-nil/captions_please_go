@@ -21,7 +21,8 @@ You can customize the response by adding one of the following commands after tag
 alt text: See what description the user gave when creating the tweet
 get text: Scan the image for text
 describe: Use AI to create a`,
-		"description of the image",
+		`description of the image
+translate: Automatically convert the result to the language code specified. (e.g. translate into ja-jp)`,
 	}
 	tests := []struct {
 		name       string

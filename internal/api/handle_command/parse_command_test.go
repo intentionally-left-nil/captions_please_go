@@ -21,12 +21,28 @@ func TestParseCommand(t *testing.T) {
 			expected: command{auto: true, tag: language.English},
 		},
 		{
+			command:  "translate",
+			expected: command{auto: true, translate: true, tag: language.English},
+		},
+		{
 			command:  "this is some random text",
 			expected: command{unknown: true, tag: language.English},
 		},
 		{
 			command:  "in english",
 			expected: command{auto: true, tag: language.English},
+		},
+		{
+			command:  "into english",
+			expected: command{auto: true, tag: language.English},
+		},
+		{
+			command:  "translate into english",
+			expected: command{auto: true, translate: true, tag: language.English},
+		},
+		{
+			command:  "translate into german",
+			expected: command{auto: true, translate: true, tag: language.German},
 		},
 		{
 			command:  "in en",
@@ -51,6 +67,10 @@ func TestParseCommand(t *testing.T) {
 		{
 			command:  "ocr",
 			expected: command{ocr: true, tag: language.English},
+		},
+		{
+			command:  "ocr and translate",
+			expected: command{ocr: true, translate: true, tag: language.English},
 		},
 		{
 			command:  "text",
@@ -95,6 +115,10 @@ func TestParseCommand(t *testing.T) {
 		{
 			command:  "alt text, get text, and describe in english",
 			expected: command{ocr: true, altText: true, describe: true, tag: language.English},
+		},
+		{
+			command:  "alt text, get text, describe, and translate into english",
+			expected: command{ocr: true, altText: true, describe: true, translate: true, tag: language.English},
 		},
 		{
 			command:  "alt text in german",

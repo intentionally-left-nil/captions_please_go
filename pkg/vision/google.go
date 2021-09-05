@@ -107,7 +107,7 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (language.Ta
 				texts[i] = translation.Text
 			}
 			translated = strings.Join(texts, "\n")
-			logrus.Debug(fmt.Sprintf("successfully translated %s into %s", toTranslate, translated))
+			logrus.Debug(fmt.Sprintf("successfully translated %s into %s for language %s", toTranslate, translated, tag.String()))
 		}
 	}
 

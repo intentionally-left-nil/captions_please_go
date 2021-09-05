@@ -24,7 +24,7 @@ func (c *command) isEmpty() bool {
 }
 
 func (c *command) String() string {
-	return fmt.Sprintf(`command{"auto": %v, "help": %v, "altText": %v, "ocr": %v, "describe": %v, "unknown": %v, "translate": %v, "tag" %s}`,
+	return fmt.Sprintf(`command{"auto": %v, "help": %v, "altText": %v, "ocr": %v, "describe": %v, "unknown": %v, "translate": %v, "tag": %s}`,
 		c.auto,
 		c.help,
 		c.altText,

@@ -14,8 +14,8 @@ import (
 )
 
 type azure struct {
-	client  computervision.BaseClient
-	matcher language.Matcher
+	client        computervision.BaseClient
+	supportedTags []language.Tag
 }
 
 func NewAzureVision(computerVisionKey string) Describer {
@@ -27,8 +27,7 @@ func NewAzureVision(computerVisionKey string) Describer {
 		supportedTags[i] = tag
 		i++
 	}
-	matcher := language.NewMatcher(supportedTags)
-	return &azure{client: client, matcher: matcher}
+	return &azure{client: client, supportedTags: supportedTags}
 }
 
 var languageMapping = map[language.Tag]string{
@@ -43,7 +42,7 @@ func (a *azure) Describe(ctx context.Context, url string) ([]VisionResult, struc
 	var result []VisionResult
 	var err error
 	imageURL := computervision.ImageURL{URL: &url}
-	tag, wrongLangErr := message.GetCompatibleLanguage(ctx, a.matcher)
+	tag, wrongLangErr := message.GetCompatibleLanguage(ctx, a.supportedTags)
 	if wrongLangErr != nil {
 		logrus.Debug("Azure cannot produce descriptions in the desired language")
 		tag = language.English

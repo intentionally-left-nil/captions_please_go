@@ -55,7 +55,6 @@ func main() {
 		},
 		Before: onBefore,
 	}
-
 	err := app.Run(os.Args)
 	if err != nil {
 		logrus.Fatal(err)

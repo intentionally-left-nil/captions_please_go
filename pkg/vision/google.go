@@ -20,7 +20,7 @@ import (
 type google struct {
 	visionClient    *vision.ImageAnnotatorClient
 	translateClient *translate.Client
-	matcher         *language.Matcher
+	supportedTags   []language.Tag
 }
 
 type Google interface {
@@ -92,22 +92,29 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (language.Ta
 	var translated string
 	var err error
 	g.loadSupportedLanguages(ctx)
-	if g.matcher != nil {
-		tag, err = message.GetCompatibleLanguage(ctx, *g.matcher)
+	if len(g.supportedTags) == 0 {
+		err = errors.New("cannot determine supported tags for translation")
+	}
+	if err == nil {
+		tag, err = message.GetCompatibleLanguage(ctx, g.supportedTags)
 		if err == nil {
 			var translations []translate.Translation
+			logrus.Debug(fmt.Sprintf("Calling translate with tag %s", tag.String()))
 			translations, err = g.translateClient.Translate(ctx, []string{toTranslate}, tag, &translate.Options{
 				Format: translate.Text,
 			})
 			if len(translations) == 0 && err == nil {
 				err = errors.New("no results")
 			}
-			texts := make([]string, len(translations))
-			for i, translation := range translations {
-				texts[i] = translation.Text
+
+			if err == nil {
+				texts := make([]string, len(translations))
+				for i, translation := range translations {
+					texts[i] = translation.Text
+				}
+				translated = strings.Join(texts, "\n")
+				logrus.Debug(fmt.Sprintf("successfully translated %s into %s for language %s", toTranslate, translated, tag.String()))
 			}
-			translated = strings.Join(texts, "\n")
-			logrus.Debug(fmt.Sprintf("successfully translated %s into %s for language %s", toTranslate, translated, tag.String()))
 		}
 	}
 
@@ -118,15 +125,14 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (language.Ta
 }
 
 func (g *google) loadSupportedLanguages(ctx context.Context) {
-	if g.matcher == nil {
+	if len(g.supportedTags) == 0 {
 		languages, err := g.translateClient.SupportedLanguages(ctx, language.English)
 		if err == nil {
 			tags := make([]language.Tag, len(languages))
 			for i, lang := range languages {
 				tags[i] = lang.Tag
 			}
-			matcher := language.NewMatcher(tags)
-			g.matcher = &matcher
+			g.supportedTags = tags
 		}
 	}
 }

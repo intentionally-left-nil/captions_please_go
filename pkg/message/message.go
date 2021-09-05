@@ -173,13 +173,17 @@ func AddOCR(ctx context.Context, description Localized, ocr Localized) Localized
 	return CombineMessages(messages, ". ")
 }
 
-func GetCompatibleLanguage(ctx context.Context, matcher language.Matcher) (language.Tag, structured_error.StructuredError) {
+func GetCompatibleLanguage(ctx context.Context, supportedTags []language.Tag) (language.Tag, structured_error.StructuredError) {
+	matcher := language.NewMatcher(supportedTags)
 	tag := language.English
 	var err structured_error.StructuredError = nil
 	desired := GetLanguage(ctx)
-	possibleMatch, _, confidence := matcher.Match(desired)
+	_, matchIndex, confidence := matcher.Match(desired)
 	if confidence >= language.High {
-		tag = possibleMatch
+		// We need to use the existing tag, because matcher.Match messes with the tag (such as setting the script to unknown zzzz)
+		// This breaks things like google, so the simplest thing is just to use the exact supported tag
+		// I'm sorry, future me, who has to deal with this.
+		tag = supportedTags[matchIndex]
 	} else {
 		err = structured_error.Wrap(fmt.Errorf("%v has no high confidence matching language", desired), structured_error.UnsupportedLanguage)
 	}
@@ -242,8 +246,7 @@ func sprintf(ctx context.Context, format string, args ...interface{}) Localized 
 }
 
 func getServerSupportedLanguage(ctx context.Context) language.Tag {
-	matcher := language.NewMatcher([]language.Tag{language.English, language.German})
-	tag, err := GetCompatibleLanguage(ctx, matcher)
+	tag, err := GetCompatibleLanguage(ctx, []language.Tag{language.English, language.German})
 	if err != nil {
 		tag = language.English
 	}

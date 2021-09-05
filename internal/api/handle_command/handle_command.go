@@ -97,7 +97,7 @@ func getResponses(ctx context.Context, command command, mediaTweet *twitter.Twee
 	responses = make([][]mediaResponse, numMedia)
 	var altTextResponses, ocrResponses, describeResponses []mediaResponse
 	if command.altText || command.auto {
-		altTextResponses = getAltText(ctx, mediaTweet)
+		altTextResponses = getAltText(ctx, command, mediaTweet)
 	} else {
 		altTextResponses = doNothings(numMedia)
 	}

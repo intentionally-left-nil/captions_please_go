@@ -277,6 +277,105 @@ func TestTweetMentions(t *testing.T) {
 			},
 		},
 		{
+			name: "Regression test: very long messages with mentions",
+			json: `{
+  "display_text_range": [
+    14,
+    140
+  ],
+  "entities": {
+    "hashtags": [],
+    "symbols": [],
+    "urls": [
+      {
+        "display_url": "twitter.com/i/web/status/1…",
+        "expanded_url": "https://twitter.com/i/web/status/1436635546097491969",
+        "indices": [
+          117,
+          140
+        ],
+        "url": "https://t.co/WdenVehFjp"
+      }
+    ],
+    "user_mentions": [
+      {
+        "id": 464970303,
+        "id_str": "464970303",
+        "indices": [
+          0,
+          13
+        ],
+        "name": "Ronen Steinke",
+        "screen_name": "RonenSteinke"
+      }
+    ]
+  },
+  "extended_tweet": {
+    "display_text_range": [
+      14,
+      153
+    ],
+    "entities": {
+      "hashtags": [],
+      "symbols": [],
+      "urls": [],
+      "user_mentions": [
+        {
+          "id": 464970303,
+          "id_str": "464970303",
+          "indices": [
+            0,
+            13
+          ],
+          "name": "Ronen Steinke",
+          "screen_name": "RonenSteinke"
+        },
+        {
+          "id": 968802481856794600,
+          "id_str": "968802481856794624",
+          "indices": [
+            124,
+            136
+          ],
+          "name": "Alt Text Reader",
+          "screen_name": "get_altText"
+        },
+        {
+          "id": 1264369368386826200,
+          "id_str": "1264369368386826240",
+          "indices": [
+            137,
+            153
+          ],
+          "name": "captions_please",
+          "screen_name": "captions_please"
+        }
+      ]
+    },
+    "full_text": "@RonenSteinke (weil kein !B im Tweet ist, kurzer Check und ggf auch schon gleich ein automatisiertes Auslesen des Textes.)\n\n@get_altText @captions_please"
+  },
+  "id": 1436635546097492000,
+  "id_str": "1436635546097491969",
+  "in_reply_to_screen_name": "RonenSteinke",
+  "in_reply_to_status_id": 1436588738973507600,
+  "in_reply_to_status_id_str": "1436588738973507584",
+  "in_reply_to_user_id": 464970303,
+  "in_reply_to_user_id_str": "464970303",
+  "is_quote_status": false,
+  "text": "@RonenSteinke (weil kein !B im Tweet ist, kurzer Check und ggf auch schon gleich ein automatisiertes Auslesen des T… https://t.co/WdenVehFjp",
+  "truncated": true,
+  "user": {
+    "id_str": "342900911",
+    "name": "Freddy",
+    "screen_name": "EinfachFreddy"
+  }
+}`,
+			expected: []Mention{
+				{User: User{Id: "464970303", Username: "RonenSteinke", Display: "Ronen Steinke"}, StartIndex: 0, EndIndex: 13, Visible: false},
+				{User: User{Id: "968802481856794624", Username: "get_altText", Display: "Alt Text Reader"}, StartIndex: 124, EndIndex: 136, Visible: true},
+				{User: User{Id: "1264369368386826240", Username: "captions_please", Display: "captions_please"}, StartIndex: 137, EndIndex: 153, Visible: true}},
+		},
+		{
 			name:     "Message without any mentions",
 			json:     "{\"entities\":{}}",
 			expected: nil,

@@ -41,24 +41,25 @@ type Mention struct {
 }
 
 type rawTweet struct {
-	Id               string                  `json:"id_str"`
-	FullText         *string                 `json:"full_text"`
-	TruncatedText    *string                 `json:"text"`
-	VisibleRange     *[]int                  `json:"display_text_range"`
-	ExtendedTweet    *extendedTweet          `json:"extended_tweet"`
-	Truncated        bool                    `json:"truncated"`
-	ParentTweetId    string                  `json:"in_reply_to_status_id_str"`
-	IsQuoteTweet     bool                    `json:"is_quote_status"`
-	QuoteTweet       *Tweet                  `json:"quoted_status"`
-	RetweetedStatus  *map[string]interface{} `json:"retweeted_status"`
-	Entities         *entities               `json:"entities"`
-	ExtendedEntities *entities               `json:"extended_entities"`
-	User             User                    `json:"user"`
+	Id                string                  `json:"id_str"`
+	FullText          *string                 `json:"full_text"`
+	TruncatedText     *string                 `json:"text"`
+	VisibleRange      *[]int                  `json:"display_text_range"`
+	ExtendedTweet     *extendedTweet          `json:"extended_tweet"`
+	Truncated         bool                    `json:"truncated"`
+	ParentTweetId     string                  `json:"in_reply_to_status_id_str"`
+	IsQuoteTweet      bool                    `json:"is_quote_status"`
+	QuoteTweet        *Tweet                  `json:"quoted_status"`
+	RetweetedStatus   *map[string]interface{} `json:"retweeted_status"`
+	TruncatedEntities *entities               `json:"entities"`
+	ExtendedEntities  *entities               `json:"extended_entities"`
+	User              User                    `json:"user"`
 }
 
 type extendedTweet struct {
-	Text         *string `json:"full_text"`
-	VisibleRange []int   `json:"display_text_range"`
+	Text         *string   `json:"full_text"`
+	VisibleRange []int     `json:"display_text_range"`
+	Entities     *entities `json:"entities"`
 }
 
 type rawMention struct {
@@ -139,11 +140,12 @@ func (t *rawTweet) TextInfo() (textInfo, error) {
 		err = invalidTweet("text", nil)
 	}
 
-	if err == nil && t.TweetType() == QuoteTweet && t.Entities != nil {
+	entities := t.Entities()
+	if err == nil && t.TweetType() == QuoteTweet && entities != nil {
 		// Quote tweets include the url at the end of the tweet
 		// but it's not visible to the user. Remove it from the visible range.
 		urlStart := -1
-		for i, url := range t.Entities.Urls {
+		for i, url := range entities.Urls {
 			if validateRange(info.full, url.Indices, fmt.Sprintf("entities.urls[%d]", i)) == nil &&
 				url.Indices[0] > urlStart {
 				urlStart = url.Indices[0]
@@ -157,6 +159,16 @@ func (t *rawTweet) TextInfo() (textInfo, error) {
 		}
 	}
 	return info, err
+}
+
+func (tweet *rawTweet) Entities() *entities {
+	var entities *entities
+	if tweet.Truncated && tweet.ExtendedTweet != nil {
+		entities = tweet.ExtendedTweet.Entities
+	} else if !tweet.Truncated {
+		entities = tweet.TruncatedEntities
+	}
+	return entities
 }
 
 func (tweet *rawTweet) TweetType() TweetType {
@@ -173,13 +185,13 @@ func (tweet *rawTweet) TweetType() TweetType {
 func (t *rawTweet) Mentions() ([]Mention, error) {
 	var err error
 	var mentions []Mention
-
-	if t.Entities != nil && t.Entities.Mentions != nil && len(t.Entities.Mentions) > 0 {
+	entities := t.Entities()
+	if entities != nil && entities.Mentions != nil && len(entities.Mentions) > 0 {
 		mentions = []Mention{}
 		var textInfo textInfo
 		textInfo, err = t.TextInfo()
 		if err == nil {
-			for i, rawMention := range t.Entities.Mentions {
+			for i, rawMention := range entities.Mentions {
 
 				if err == nil {
 					err = validateRange(textInfo.full, rawMention.Indices, fmt.Sprintf("mention[%d]", i))
@@ -213,8 +225,8 @@ func (t *rawTweet) Media() []Media {
 }
 
 func (t *rawTweet) FallbackMedia() []Media {
-	if t.Entities != nil && t.Entities.Media != nil && len(t.Entities.Media) > 0 {
-		return t.Entities.Media
+	if t.TruncatedEntities != nil && t.TruncatedEntities.Media != nil && len(t.TruncatedEntities.Media) > 0 {
+		return t.TruncatedEntities.Media
 	}
 	return nil
 }

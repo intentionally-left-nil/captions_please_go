@@ -197,6 +197,16 @@ func TestGetCommand(t *testing.T) {
 			mention:  &twitter.Mention{EndIndex: captionsPleaseOffset + len("@bot1\n@bot2\n")},
 			expected: "get alt text",
 		},
+		{
+			name: "Ignores text after mentioning a different user",
+			tweet: &twitter.Tweet{VisibleText: "@bot1 @captions_please ocr @bot2", VisibleTextOffset: 7, Mentions: []twitter.Mention{
+				{StartIndex: 7, EndIndex: 12, User: twitter.User{Username: "@bot1"}},
+				{StartIndex: 12, EndIndex: 29, User: twitter.User{Username: "@captions_please"}},
+				{StartIndex: 32, EndIndex: 39, User: twitter.User{Username: "@bot2"}},
+			}},
+			mention:  &twitter.Mention{StartIndex: 12, EndIndex: 29, User: twitter.User{Username: "@captions_please"}},
+			expected: "ocr",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

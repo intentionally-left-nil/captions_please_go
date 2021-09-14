@@ -196,9 +196,18 @@ func getCommand(tweet *twitter.Tweet, mention *twitter.Mention) string {
 	// we just need to subtract the offset
 	// e.g. in this example, @captions_please is from [0,16] in the visible text
 	command := ""
-	endIndex := mention.EndIndex - tweet.VisibleTextOffset
-	if endIndex+1 < len(tweet.VisibleText) {
-		lines := strings.SplitN(tweet.VisibleText[endIndex+1:], "\n", 2)
+	startIndex := mention.EndIndex - tweet.VisibleTextOffset
+	if startIndex+1 < len(tweet.VisibleText) {
+		endIndex := len(tweet.VisibleText)
+		for _, otherMention := range tweet.Mentions {
+			otherMentionStart := otherMention.StartIndex - tweet.VisibleTextOffset
+			otherMentionEnd := otherMention.EndIndex - tweet.VisibleTextOffset
+			if otherMentionEnd > startIndex && otherMentionStart+1 < endIndex {
+				endIndex = otherMentionStart + 1
+			}
+		}
+
+		lines := strings.SplitN(tweet.VisibleText[startIndex+1:endIndex], "\n", 2)
 		if len(lines) > 0 {
 			command = strings.TrimSpace(lines[0])
 		}

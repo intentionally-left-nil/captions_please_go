@@ -104,6 +104,7 @@ func getOCRMediaResponse(ctx context.Context, command command, mediaTweet *twitt
 		} else if jobResult.err.Type() == structured_error.WrongMediaType {
 			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
+			logrus.Debug(fmt.Sprintf("Error trying to get the ocr: %v", jobResult.err))
 			response = mediaResponse{index: i, responseType: foundOCRResponse, err: jobResult.err}
 		}
 		responses[i] = response

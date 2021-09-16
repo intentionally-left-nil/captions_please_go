@@ -113,6 +113,7 @@ func getDescribeMediaResponse(ctx context.Context, mediaTweet *twitter.Tweet) []
 		} else if jobResult.err.Type() == structured_error.WrongMediaType {
 			response = mediaResponse{index: i, responseType: doNothingResponse}
 		} else {
+			logrus.Debug(fmt.Sprintf("Error trying to get the description: %v", jobResult.err))
 			response = mediaResponse{index: i, responseType: foundVisionResponse, err: jobResult.err}
 
 		}

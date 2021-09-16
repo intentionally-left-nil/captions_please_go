@@ -58,7 +58,7 @@ translate: Automatically convert the result to the language code specified. (e.g
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			ctx, err := replier.WithReplier(ctx, mockTwitter)
+			ctx, err := replier.WithReplier(ctx, mockTwitter, false)
 			assert.NoError(t, err)
 
 			tweet := &twitter.Tweet{Id: "0"}

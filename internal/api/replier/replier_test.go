@@ -22,7 +22,7 @@ func TestWithReplier(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mockTwitter := twitter_test.MockTwitter{T: t}
-	ctx, err := WithReplier(ctx, &mockTwitter)
+	ctx, err := WithReplier(ctx, &mockTwitter, false)
 	assert.NoError(t, err)
 	state := getReplierState(ctx)
 	assert.NotNil(t, state)
@@ -170,7 +170,7 @@ func TestReply(t *testing.T) {
 				earlyTimer = time.AfterFunc(time.Millisecond*50, cancel)
 			}
 
-			ctx, err := WithReplier(ctx, mockTwitter)
+			ctx, err := WithReplier(ctx, mockTwitter, false)
 			assert.NoError(t, err)
 			tweet := &twitter.Tweet{Id: "0"}
 			result := Reply(ctx, tweet, message.Unlocalized(test.message))

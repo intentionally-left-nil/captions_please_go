@@ -19,6 +19,7 @@ type ReplyResult struct {
 
 type replierState struct {
 	client twitter.Twitter
+	dryRun bool
 }
 type replierCtxKey int
 
@@ -26,23 +27,35 @@ const theReplierKey replierCtxKey = 0
 
 var after func(time.Duration) <-chan time.Time = time.After
 
-func WithReplier(ctx context.Context, client twitter.Twitter) (context.Context, error) {
+func WithReplier(ctx context.Context, client twitter.Twitter, dryRun bool) (context.Context, error) {
 	err := message.LoadMessages()
 	if err == nil {
-		state := &replierState{client: client}
+		state := &replierState{client: client, dryRun: dryRun}
 		ctx = setReplierState(ctx, state)
 	}
 	return ctx, err
 }
 
-func Reply(ctx context.Context, tweet *twitter.Tweet, message message.Localized) ReplyResult {
+func Reply(ctx context.Context, tweet *twitter.Tweet, message message.Localized) (result ReplyResult) {
 	logrus.Debug(fmt.Sprintf("%s Reply called with %s", tweet.Id, message))
 	remaining, err := splitMessage(string(message))
 	if err != nil {
 		return ReplyResult{Err: err, ParentTweet: tweet}
 	}
 	state := getReplierState(ctx)
-	return replyHelper(ctx, state.client, tweet, remaining)
+	if state.dryRun {
+		fmt.Println("DRY RUN WOULD HAVE TWEETED THE FOLLOWING TWEETS:")
+		for _, message := range remaining {
+			fmt.Println(message)
+		}
+		fmt.Println("END DRY RUN")
+		result = ReplyResult{
+			ParentTweet: tweet,
+		}
+	} else {
+		result = replyHelper(ctx, state.client, tweet, remaining)
+	}
+	return result
 }
 
 func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Tweet, remaining []string) ReplyResult {

@@ -394,7 +394,7 @@ func TestHandleCommand(t *testing.T) {
 			mockTwitter := &twitter_test.MockTwitter{T: t}
 
 			ctx = WithHandleCommand(ctx, mockTwitter)
-			ctx, err := replier.WithReplier(ctx, mockTwitter)
+			ctx, err := replier.WithReplier(ctx, mockTwitter, false)
 			assert.NoError(t, err)
 			parentTweet := &twitter.Tweet{Id: "parentTweet"}
 			result := handleCommand(ctx, test.command, parentTweet)
@@ -436,7 +436,7 @@ func TestHandleCommandRespondsToAPanic(t *testing.T) {
 	mockTwitter := &twitter_test.MockTwitter{T: t}
 
 	ctx = WithHandleCommand(ctx, mockTwitter)
-	ctx, err := replier.WithReplier(ctx, mockTwitter)
+	ctx, err := replier.WithReplier(ctx, mockTwitter, false)
 	assert.NoError(t, err)
 	assert.Panics(t, func() {
 		HandleCommand(ctx, "help", &twitter.Tweet{})

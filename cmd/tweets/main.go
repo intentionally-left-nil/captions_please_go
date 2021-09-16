@@ -43,6 +43,7 @@ func main() {
 				Action: processTweet,
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "id", Required: true},
+					&cli.BoolFlag{Name: "dry-run"},
 				},
 			},
 		},
@@ -88,7 +89,7 @@ func processTweet(c *cli.Context) error {
 			var ctx context.Context
 			ctx, err = common.WithSecrets(context.Background())
 			if err == nil {
-				ctx, err = api.WithAccountActivity(ctx, api.ActivityConfig{}, client)
+				ctx, err = api.WithAccountActivity(ctx, api.ActivityConfig{DryRun: c.Bool("dry-run")}, client)
 				if err == nil {
 					_, out := api.AccountActivityWebhook(ctx, request)
 					for result := range out {

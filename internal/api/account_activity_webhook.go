@@ -28,6 +28,7 @@ type ActivityConfig struct {
 	Workers            uint
 	MaxOutstandingJobs uint
 	WebhookTimeout     time.Duration
+	DryRun             bool
 }
 
 type activityState struct {
@@ -59,7 +60,7 @@ func WithAccountActivity(ctx context.Context, config ActivityConfig, client twit
 	}
 
 	if err == nil {
-		ctx, err = replier.WithReplier(ctx, client)
+		ctx, err = replier.WithReplier(ctx, client, config.DryRun)
 	}
 
 	if err == nil {

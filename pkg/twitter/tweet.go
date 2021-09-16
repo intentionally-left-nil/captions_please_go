@@ -57,9 +57,10 @@ type rawTweet struct {
 }
 
 type extendedTweet struct {
-	Text         *string   `json:"full_text"`
-	VisibleRange []int     `json:"display_text_range"`
-	Entities     *entities `json:"entities"`
+	Text             *string   `json:"full_text"`
+	VisibleRange     []int     `json:"display_text_range"`
+	Entities         *entities `json:"entities"`
+	ExtendedEntities *entities `json:"extended_entities"`
 }
 
 type rawMention struct {
@@ -217,11 +218,13 @@ func (t *rawTweet) Mentions() ([]Mention, error) {
 	return mentions, err
 }
 
-func (t *rawTweet) Media() []Media {
-	if t.ExtendedEntities != nil && t.ExtendedEntities.Media != nil && len(t.ExtendedEntities.Media) > 0 {
-		return t.ExtendedEntities.Media
+func (t *rawTweet) Media() (media []Media) {
+	if t.ExtendedTweet != nil && t.ExtendedTweet.ExtendedEntities != nil && len(t.ExtendedTweet.ExtendedEntities.Media) > 0 {
+		media = t.ExtendedTweet.ExtendedEntities.Media
+	} else if t.ExtendedEntities != nil && t.ExtendedEntities.Media != nil && len(t.ExtendedEntities.Media) > 0 {
+		media = t.ExtendedEntities.Media
 	}
-	return nil
+	return media
 }
 
 func (t *rawTweet) FallbackMedia() []Media {

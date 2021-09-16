@@ -443,6 +443,11 @@ func TestTweetMedia(t *testing.T) {
 			json:     "{\"extended_entities\": {\"media\":[{\"type\":\"photo\", \"media_url_https\":\"https://terminal.space\", \"ext_alt_text\": \"user caption\"}]}}",
 			expected: []Media{{Type: "photo", Url: "https://terminal.space", AltText: &altText}},
 		},
+		{
+			name:     "Has media in the extended tweet",
+			json:     "{\"extended_tweet\": {\"extended_entities\": {\"media\":[{\"type\": \"photo\", \"media_url_https\": \"https://terminal.space\"}]}}}",
+			expected: []Media{{Type: "photo", Url: "https://terminal.space"}},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

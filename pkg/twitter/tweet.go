@@ -174,11 +174,13 @@ func (tweet *rawTweet) Entities() *entities {
 
 func (tweet *rawTweet) TweetType() TweetType {
 
-	if tweet.IsQuoteTweet {
-		return QuoteTweet
-	}
+	// A retweet of a quote tweet has both IsQuoteTweet=true !?! and a RetweetedStatus
+	// A plain quote tweet just has IsQuoteTweet set to true. tl;dr: check IsQuoteTweet first
 	if tweet.RetweetedStatus != nil {
 		return Retweet
+	}
+	if tweet.IsQuoteTweet {
+		return QuoteTweet
 	}
 	return SimpleTweet
 }

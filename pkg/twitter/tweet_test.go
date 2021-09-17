@@ -235,6 +235,11 @@ func TestTweetType(t *testing.T) {
 			json:     "{\"retweeted_status\": {}}",
 			expected: Retweet,
 		},
+		{
+			name:     "retweet of a quote tweet is a retweet",
+			json:     `{"is_quote_status": true, "retweeted_status": {}}`,
+			expected: Retweet,
+		},
 	}
 
 	for _, test := range tests {

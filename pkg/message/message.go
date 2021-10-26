@@ -69,7 +69,7 @@ You can customize the response by adding one of the following commands after tag
 	ocrCommandFormat                 = "get text"
 	describeCommandFormat            = "describe"
 	translateFormat                  = "translate"
-	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout!. Try \"@captions_please help\" to learn more"
+	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout! Try \"@captions_please help\" to learn more"
 	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"
 	imageLabelFormat                 = "Image %d: %s"
 	hasAltTextFormat                 = "%s says it's %s"

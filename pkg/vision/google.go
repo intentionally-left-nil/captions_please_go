@@ -5,12 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+
+	speech "cloud.google.com/go/speech/apiv1"
+	"cloud.google.com/go/storage"
+	speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
 
 	"cloud.google.com/go/translate"
 	vision "cloud.google.com/go/vision/apiv1"
 	"github.com/AnilRedshift/captions_please_go/pkg/message"
 	"github.com/AnilRedshift/captions_please_go/pkg/structured_error"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
 	"google.golang.org/api/option"
@@ -18,14 +29,17 @@ import (
 )
 
 type google struct {
-	visionClient    *vision.ImageAnnotatorClient
-	translateClient *translate.Client
-	supportedTags   []language.Tag
+	visionClient     *vision.ImageAnnotatorClient
+	translateClient  *translate.Client
+	transcribeClient *speech.Client
+	storageClient    *storage.Client
+	supportedTags    []language.Tag
 }
 
 type Google interface {
 	OCR
 	Translator
+	Transcriber
 }
 
 func NewGoogle(privateKeyId string, privateKey string) (Google, error) {
@@ -48,11 +62,22 @@ func NewGoogle(privateKeyId string, privateKey string) (Google, error) {
 		ctx := context.Background()
 		var visionClient *vision.ImageAnnotatorClient
 		var translateClient *translate.Client
+		var transcribeClient *speech.Client
+		var storageClient *storage.Client
 		visionClient, err = vision.NewImageAnnotatorClient(ctx, option.WithCredentialsJSON(credentialsJSON))
 		if err == nil {
 			translateClient, err = translate.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
 			if err == nil {
-				Google = &google{visionClient: visionClient, translateClient: translateClient}
+				transcribeClient, err = speech.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
+				if err == nil {
+					storageClient, err = storage.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
+				}
+				Google = &google{
+					visionClient:     visionClient,
+					translateClient:  translateClient,
+					transcribeClient: transcribeClient,
+					storageClient:    storageClient,
+				}
 			}
 		}
 	}
@@ -79,12 +104,18 @@ func (g *google) GetOCR(ctx context.Context, url string) (*OCRResult, structured
 }
 
 func (g *google) Close() error {
-	visionErr := g.visionClient.Close()
-	translateErr := g.translateClient.Close()
-	if visionErr != nil {
-		return visionErr
+	errs := []error{
+		g.visionClient.Close(),
+		g.translateClient.Close(),
+		g.transcribeClient.Close(),
+		g.storageClient.Close(),
 	}
-	return translateErr
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *google) Translate(ctx context.Context, toTranslate string) (language.Tag, string, structured_error.StructuredError) {
@@ -122,6 +153,115 @@ func (g *google) Translate(ctx context.Context, toTranslate string) (language.Ta
 		logrus.Debug(fmt.Sprintf("Translation failed with %v", err))
 	}
 	return tag, translated, structured_error.Wrap(err, structured_error.TranslateError)
+}
+
+func (g *google) Transcribe(ctx context.Context, url string) ([]TranscriptionResult, structured_error.StructuredError) {
+	var results []TranscriptionResult
+	objectName := uuid.New().String()
+	err := g.withAudioFromVideoURL(ctx, url, func(filename string) error {
+		return g.uploadFile(ctx, filename, objectName)
+	})
+	if err == nil {
+		defer g.getCloudObject(objectName).Delete(ctx)
+		language := message.GetLanguage(ctx)
+		var operation *speech.LongRunningRecognizeOperation
+
+		operation, err = g.transcribeClient.LongRunningRecognize(ctx, &speechpb.LongRunningRecognizeRequest{
+			Config: &speechpb.RecognitionConfig{
+				Encoding:                            speechpb.RecognitionConfig_FLAC,
+				EnableSeparateRecognitionPerChannel: false,
+				LanguageCode:                        language.String(),
+				MaxAlternatives:                     1,
+				ProfanityFilter:                     false,
+				SpeechContexts:                      []*speechpb.SpeechContext{},
+				EnableWordTimeOffsets:               false,
+				EnableAutomaticPunctuation:          false,
+				DiarizationConfig:                   &speechpb.SpeakerDiarizationConfig{},
+				Metadata:                            &speechpb.RecognitionMetadata{},
+				Model:                               "video",
+				UseEnhanced:                         false,
+			},
+			Audio: &speechpb.RecognitionAudio{
+				AudioSource: &speechpb.RecognitionAudio_Uri{
+					Uri: fmt.Sprintf("gs://captions_please_transcribe/%s", objectName),
+				},
+			},
+		})
+
+		if err == nil {
+			var response *speechpb.LongRunningRecognizeResponse
+			response, err = operation.Wait(ctx)
+			if err == nil {
+				results = []TranscriptionResult{}
+				if err == nil && response != nil && response.Results != nil {
+					for _, result := range response.Results {
+						if result != nil && len(result.Alternatives) > 0 && result.Alternatives[0].Transcript != "" {
+							results = append(results, TranscriptionResult{Confidence: result.Alternatives[0].Confidence, Text: result.Alternatives[0].Transcript})
+						}
+					}
+				}
+
+				if len(results) == 0 && err == nil {
+					err = errors.New("no results")
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		logrus.Debug(fmt.Sprintf("Transcription failed with %v", err))
+	}
+	return results, structured_error.Wrap(err, structured_error.TranscribeError)
+}
+
+func (g *google) withAudioFromVideoURL(ctx context.Context, url string, handler func(filename string) error) error {
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err == nil {
+		var audioResp *http.Response
+		audioResp, err = http.DefaultClient.Do(httpRequest)
+		if err == nil && audioResp.StatusCode < 200 && audioResp.StatusCode >= 300 {
+			err = fmt.Errorf("downloading the URL failed with status code %d", audioResp.StatusCode)
+		}
+		if err == nil {
+			defer audioResp.Body.Close()
+			var dir string
+			dir, err = ioutil.TempDir("", "captions_please_transcribe")
+			if err == nil {
+				defer os.RemoveAll(dir)
+				sourceName := filepath.Join(dir, "source.mp4")
+				destName := filepath.Join(dir, "out.flac")
+				var source *os.File
+				source, err = os.Create(sourceName)
+				if err == nil {
+					_, err = io.Copy(source, audioResp.Body)
+					if err == nil {
+						err = exec.Command("ffmpeg", "-i", sourceName, "-vn", "-c:v", "flac", destName).Run()
+						if err == nil {
+							err = handler(destName)
+						}
+					}
+				}
+			}
+		}
+	}
+	return err
+}
+
+func (g *google) uploadFile(ctx context.Context, filename string, objectName string) error {
+	file, err := os.Open(filename)
+	if err == nil {
+		defer file.Close()
+		writer := g.getCloudObject(objectName).NewWriter(ctx)
+		_, err = io.Copy(writer, file)
+		if err == nil {
+			err = writer.Close()
+		}
+	}
+	return err
+}
+
+func (g *google) getCloudObject(objectName string) *storage.ObjectHandle {
+	return g.storageClient.Bucket("captions_please_transcribe").Object(objectName)
 }
 
 func (g *google) loadSupportedLanguages(ctx context.Context) {

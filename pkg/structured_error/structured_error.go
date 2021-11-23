@@ -15,6 +15,7 @@ const (
 	OCRError
 	DescribeError
 	TranslateError
+	TranscribeError
 	UnsupportedLanguage
 	Unknown
 )

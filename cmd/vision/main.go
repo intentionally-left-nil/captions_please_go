@@ -49,6 +49,14 @@ func main() {
 					&cli.StringFlag{Name: "message", Required: true},
 				},
 			},
+			{
+				Name:   "transcribe",
+				Usage:  "Extract the audio from a video and transcribe",
+				Action: transcribe,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "url", Required: true},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "verbose"},
@@ -144,6 +152,25 @@ func translate(c *cli.Context) error {
 		}
 	}
 	return err
+}
+
+func transcribe(c *cli.Context) error {
+	secrets, err := common.NewSecrets()
+	if err == nil {
+		var transcriber vision.Transcriber
+		transcriber, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+		if err == nil {
+			var results []vision.TranscriptionResult
+			results, err = transcriber.Transcribe(context.Background(), c.String("url"))
+			if err == nil {
+				for _, result := range results {
+					printJSON(result)
+				}
+			}
+		}
+	}
+	return err
+
 }
 
 func printJSON(v interface{}) {

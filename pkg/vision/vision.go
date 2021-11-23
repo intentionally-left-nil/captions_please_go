@@ -24,6 +24,8 @@ type VisionResult struct {
 	Confidence float32
 }
 
+type TranscriptionResult VisionResult
+
 type OCR interface {
 	GetOCR(ctx context.Context, url string) (*OCRResult, structured_error.StructuredError)
 	Close() error
@@ -36,6 +38,10 @@ type Describer interface {
 type Translator interface {
 	Translate(ctx context.Context, message string) (language.Tag, string, structured_error.StructuredError)
 	Close() error
+}
+
+type Transcriber interface {
+	Transcribe(ctx context.Context, url string) ([]TranscriptionResult, structured_error.StructuredError)
 }
 
 func logDebugJSON(v interface{}) {

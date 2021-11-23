@@ -30,7 +30,7 @@ func GetLanguage(ctx context.Context) language.Tag {
 	if tag, ok := ctx.Value(theMessageKey).(language.Tag); ok {
 		return tag
 	}
-	return language.English
+	return language.AmericanEnglish
 }
 
 func LoadMessages() error {

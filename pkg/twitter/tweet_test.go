@@ -3,6 +3,7 @@ package twitter
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -452,6 +453,84 @@ func TestTweetMedia(t *testing.T) {
 			name:     "Has media in the extended tweet",
 			json:     "{\"extended_tweet\": {\"extended_entities\": {\"media\":[{\"type\": \"photo\", \"media_url_https\": \"https://terminal.space\"}]}}}",
 			expected: []Media{{Type: "photo", Url: "https://terminal.space"}},
+		},
+		{
+			name: "Has a valid mp4 video",
+			json: ` {
+				"extended_entities": {
+					"media": [
+						{
+							"type": "video",
+							"video_info": {
+								"duration_millis": 100,
+								"variants": [
+									{
+										"content_type": "video/mp4",
+										"bitrate": 123,
+										"url": "https://terminal.space"
+									}
+								]
+							}
+						}
+					]
+				}
+			}`,
+			expected: []Media{{Type: "video", Url: "https://terminal.space", Duration: time.Millisecond * 100}},
+		},
+		{
+			name: "Has a video but not an mp4",
+			json: ` {
+				"extended_entities": {
+					"media": [
+						{
+							"type": "video",
+							"video_info": {
+								"duration_millis": 100,
+								"variants": [
+									{
+										"content_type": "application/x-mpegURL",
+										"bitrate": 123,
+										"url": "https://terminal.space"
+									}
+								]
+							}
+						}
+					]
+				}
+			}`,
+			expected: []Media{{Type: "video", Url: "", Duration: time.Millisecond * 100}},
+		},
+		{
+			name: "Prefers the video with the lowest bitrate",
+			json: ` {
+				"extended_entities": {
+					"media": [
+						{
+							"type": "video",
+							"video_info": {
+								"duration_millis": 100,
+								"variants": [
+									{
+										"content_type": "video/mp4",
+										"url": "https://no_bitrate"
+									},
+									{
+										"content_type": "video/mp4",
+										"bitrate": 123,
+										"url": "https://terminal.space"
+									},
+									{
+										"content_type": "video/mp4",
+										"bitrate": 9001,
+										"url": "https://high_bitrate"
+									}
+								]
+							}
+						}
+					]
+				}
+			}`,
+			expected: []Media{{Type: "video", Url: "https://terminal.space", Duration: time.Millisecond * 100}},
 		},
 	}
 	for _, test := range tests {

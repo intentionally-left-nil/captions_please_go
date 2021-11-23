@@ -3,6 +3,8 @@ package twitter
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"time"
 )
 
 type Tweet struct {
@@ -73,16 +75,33 @@ type rawUrl struct {
 	Indices []int  `json:"indices"`
 }
 
+type rawVideo struct {
+	DurationMs int `json:"duration_millis"`
+	Variants   []struct {
+		ContentType string `json:"content_type"`
+		Url         string `json:"url"`
+		Bitrate     *int   `json:"bitrate"`
+	} `json:"variants"`
+}
+
 type Media struct {
-	Id      string  `json:"id_str"`
-	Url     string  `json:"media_url_https"`
-	Type    string  `json:"type"`
-	AltText *string `json:"ext_alt_text"`
+	Url      string
+	Type     string
+	AltText  *string
+	Duration time.Duration
+}
+
+type rawMedia struct {
+	Id      string    `json:"id_str"`
+	Url     string    `json:"media_url_https"`
+	Type    string    `json:"type"`
+	AltText *string   `json:"ext_alt_text"`
+	Video   *rawVideo `json:"video_info"`
 }
 
 type entities struct {
 	Mentions []rawMention `json:"user_mentions"`
-	Media    []Media      `json:"media"`
+	Media    []rawMedia   `json:"media"`
 	Urls     []rawUrl     `json:"urls"`
 }
 
@@ -220,7 +239,7 @@ func (t *rawTweet) Mentions() ([]Mention, error) {
 	return mentions, err
 }
 
-func (t *rawTweet) Media() (media []Media) {
+func (t *rawTweet) rawMedia() (media []rawMedia) {
 	if t.ExtendedTweet != nil && t.ExtendedTweet.ExtendedEntities != nil && len(t.ExtendedTweet.ExtendedEntities.Media) > 0 {
 		media = t.ExtendedTweet.ExtendedEntities.Media
 	} else if t.ExtendedEntities != nil && t.ExtendedEntities.Media != nil && len(t.ExtendedEntities.Media) > 0 {
@@ -229,11 +248,52 @@ func (t *rawTweet) Media() (media []Media) {
 	return media
 }
 
-func (t *rawTweet) FallbackMedia() []Media {
+func (t *rawTweet) rawFallbackMedia() []rawMedia {
 	if t.TruncatedEntities != nil && t.TruncatedEntities.Media != nil && len(t.TruncatedEntities.Media) > 0 {
 		return t.TruncatedEntities.Media
 	}
 	return nil
+}
+
+func rawMediaToMedia(rawMedia []rawMedia) (media []Media) {
+	if len(rawMedia) == 0 {
+		return
+	}
+	media = make([]Media, len(rawMedia))
+	for i, rawMedia := range rawMedia {
+		media[i] = Media{
+			Url:     rawMedia.Url,
+			Type:    rawMedia.Type,
+			AltText: rawMedia.AltText,
+		}
+
+		if media[i].Type == "video" {
+			media[i].Duration = time.Duration(rawMedia.Video.DurationMs) * time.Millisecond
+			media[i].Url = rawMedia.Video.getMp4Url()
+		}
+	}
+	return media
+}
+
+func (t *rawTweet) Media() []Media {
+	return rawMediaToMedia(t.rawMedia())
+}
+
+func (t *rawTweet) FallbackMedia() (media []Media) {
+	return rawMediaToMedia(t.rawFallbackMedia())
+}
+
+func (v *rawVideo) getMp4Url() (url string) {
+	bitrate := math.MaxInt
+	for _, variant := range v.Variants {
+		if variant.ContentType == "video/mp4" && (variant.Bitrate == nil || *variant.Bitrate < bitrate) {
+			url = variant.Url
+			if variant.Bitrate != nil {
+				bitrate = *variant.Bitrate
+			}
+		}
+	}
+	return
 }
 
 func (t *Tweet) UnmarshalJSON(bytes []byte) error {

@@ -35,6 +35,7 @@ func TestWithSecrects(t *testing.T) {
 		"GOOGLE_PRIVATE_KEY_ID":        "googleyID",
 		"GOOGLE_PRIVATE_KEY_SECRET":    "googleySecret",
 		"AZURE_COMPUTER_VISION_KEY":    "softieSecret",
+		"ASSEMBLY_AI_KEY":              "assemblySecret",
 	}
 
 	for _, test := range tests {

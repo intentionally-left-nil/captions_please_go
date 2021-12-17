@@ -55,6 +55,7 @@ func main() {
 				Action: transcribe,
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "url", Required: true},
+					&cli.StringFlag{Name: "provider", Value: "google"},
 				},
 			},
 		},
@@ -158,7 +159,15 @@ func transcribe(c *cli.Context) error {
 	secrets, err := common.NewSecrets()
 	if err == nil {
 		var transcriber vision.Transcriber
-		transcriber, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+
+		switch c.String("provider") {
+		case "google":
+			transcriber, err = vision.NewGoogle(secrets.GooglePrivateKeyID, secrets.GooglePrivateKeySecret)
+		case "assembly":
+			transcriber = vision.NewAssemblyAi(secrets.AssemblyAIKey)
+		default:
+			err = errors.New("invalid provider, must be [google|assembly]")
+		}
 		if err == nil {
 			var results []vision.TranscriptionResult
 			results, err = transcriber.Transcribe(context.Background(), c.String("url"))

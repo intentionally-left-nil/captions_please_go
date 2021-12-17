@@ -17,6 +17,7 @@ type Secrets struct {
 	GooglePrivateKeyID       string
 	GooglePrivateKeySecret   string
 	AzureComputerVisionKey   string
+	AssemblyAIKey            string
 }
 
 type key int
@@ -40,6 +41,7 @@ func NewSecrets() (*Secrets, error) {
 		{"GooglePrivateKeyID", "GOOGLE_PRIVATE_KEY_ID"},
 		{"GooglePrivateKeySecret", "GOOGLE_PRIVATE_KEY_SECRET"},
 		{"AzureComputerVisionKey", "AZURE_COMPUTER_VISION_KEY"},
+		{"AssemblyAIKey", "ASSEMBLY_AI_KEY"},
 	}
 
 	secrets := Secrets{}

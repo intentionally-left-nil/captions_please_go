@@ -45,8 +45,8 @@ translate: Automatically convert the result to the language code specified. (e.g
 			defer leaktest.Check(t)()
 
 			tweetId := 0
-			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentId string, message string) (*twitter.Tweet, error) {
-				parentAsInt, err := strconv.Atoi(parentId)
+			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentTweet *twitter.Tweet, message string) (*twitter.Tweet, error) {
+				parentAsInt, err := strconv.Atoi(parentTweet.Id)
 				assert.NoError(t, err)
 				assert.Equal(t, tweetId, parentAsInt)
 				assert.Equal(t, test.expected[tweetId], message)

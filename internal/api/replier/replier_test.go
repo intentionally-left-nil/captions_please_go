@@ -127,8 +127,8 @@ func TestReply(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			tweetId := 0
-			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentId string, message string) (*twitter.Tweet, error) {
-				parentAsInt, err := strconv.Atoi(parentId)
+			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentTweet *twitter.Tweet, message string) (*twitter.Tweet, error) {
+				parentAsInt, err := strconv.Atoi(parentTweet.Id)
 				assert.NoError(t, err)
 				if test.replyErrs != nil &&
 					tweetId > 0 &&

@@ -20,7 +20,7 @@ type MockTwitter struct {
 	AddSubscriptionMock    func() error
 	GetTweetMock           func(tweetID string) (*twitter.Tweet, error)
 	GetTweetRawMock        func(tweetID string) (*http.Response, error)
-	TweetReplyMock         func(tweetID string, message string) (*twitter.Tweet, error)
+	TweetReplyMock         func(tweet *twitter.Tweet, message string) (*twitter.Tweet, error)
 }
 
 func (m *MockTwitter) GetWebhooks(ctx context.Context) ([]twitter.Webhook, structured_error.StructuredError) {
@@ -71,8 +71,8 @@ func (m *MockTwitter) GetTweetRaw(ctx context.Context, id string) (*http.Respons
 	return resp, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (m *MockTwitter) TweetReply(ctx context.Context, id string, message string) (*twitter.Tweet, structured_error.StructuredError) {
+func (m *MockTwitter) TweetReply(ctx context.Context, tweet *twitter.Tweet, message string) (*twitter.Tweet, structured_error.StructuredError) {
 	assert.NotNil(m.T, m.TweetReplyMock)
-	tweet, err := m.TweetReplyMock(id, message)
+	tweet, err := m.TweetReplyMock(tweet, message)
 	return tweet, structured_error.Wrap(err, structured_error.TwitterError)
 }

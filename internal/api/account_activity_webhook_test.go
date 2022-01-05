@@ -101,7 +101,7 @@ func TestAccountActivityWebhook(t *testing.T) {
 			secrets := &common.Secrets{GooglePrivateKeySecret: vision_test.DummyGoogleCert}
 			ctx = common.SetSecrets(ctx, secrets)
 			var delayCount uint64
-			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(string, string) (*twitter.Tweet, error) {
+			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(*twitter.Tweet, string) (*twitter.Tweet, error) {
 				count := atomic.AddUint64(&delayCount, 1)
 				if count <= uint64(test.timesToDelay) {
 					time.Sleep(time.Millisecond * 200)

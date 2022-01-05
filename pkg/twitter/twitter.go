@@ -97,7 +97,7 @@ type Twitter interface {
 	AddSubscription(ctx context.Context) structured_error.StructuredError
 	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, structured_error.StructuredError)
 	GetTweet(ctx context.Context, tweetID string) (*Tweet, structured_error.StructuredError)
-	TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError)
+	TweetReply(ctx context.Context, parentTweet *Tweet, message string) (*Tweet, structured_error.StructuredError)
 }
 
 type Webhook struct {
@@ -267,17 +267,27 @@ func (t *twitter) GetTweetRaw(ctx context.Context, tweetID string) (*http.Respon
 	return response, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
-func (t *twitter) TweetReply(ctx context.Context, tweetID string, message string) (*Tweet, structured_error.StructuredError) {
+func (t *twitter) TweetReply(ctx context.Context, parentTweet *Tweet, message string) (*Tweet, structured_error.StructuredError) {
 	tweet := Tweet{}
+	// untag everyone except the parent tweeter
+	// This will prevent excess people from getting an @mention
+	exclude_ids := []string{}
+	for _, mention := range parentTweet.Mentions {
+		if mention.Id != parentTweet.User.Id {
+			exclude_ids = append(exclude_ids, mention.Id)
+
+		}
+	}
 	values := url.Values{
 		"status":                       []string{message},
-		"in_reply_to_status_id":        []string{tweetID},
+		"in_reply_to_status_id":        []string{parentTweet.Id},
 		"auto_populate_reply_metadata": []string{"true"},
+		"exclude_reply_user_ids":       []string{strings.Join(exclude_ids, ",")},
 		"include_entities":             []string{"true"},
 		"include_ext_alt_text":         []string{"true"},
 		"tweet_mode":                   []string{"extended"},
 	}
-	logrus.Debug(fmt.Sprintf("%s: Sending tweet %s", tweetID, message))
+	logrus.Debug(fmt.Sprintf("%s: Sending tweet %s", parentTweet.Id, message))
 	response, err := t.post(ctx, "tweet_reply", URL+"statuses/update.json", values)
 	if err == nil {
 		err = GetJSON(response, &tweet)

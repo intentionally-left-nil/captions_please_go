@@ -62,14 +62,14 @@ func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 	if len(remaining) == 0 {
 		return ReplyResult{ParentTweet: tweet}
 	}
-	nextTweet, err := client.TweetReply(ctx, tweet.Id, remaining[0])
+	nextTweet, err := client.TweetReply(ctx, tweet, remaining[0])
 	if err != nil && err.Type() == structured_error.TweetTooLong {
 		// The twitter-text library we use isn't fully up to date and gets in wrong sometimes
 		// As a fallback just cut the tweet in half and try to send it
 		logrus.Error(fmt.Sprintf("%s: The reply was too long: %s", tweet.Id, remaining[0]))
 		first, second := splitInTwo(remaining[0])
 		logrus.Debug(fmt.Sprintf("%s: Trying to send the smaller tweet %s", tweet.Id, first))
-		nextTweet, err = client.TweetReply(ctx, tweet.Id, first)
+		nextTweet, err = client.TweetReply(ctx, tweet, first)
 		if err == nil {
 			logrus.Debug(fmt.Sprintf("%s: Succeeded sending the smaller tweet", tweet.Id))
 			// We were successful, so convert remaining from [tooLong, nextTweet...]
@@ -89,7 +89,7 @@ func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 			logrus.Debug(fmt.Sprintf("%s: timeout before retrying CaseOfTheMissingTweet", tweet.Id))
 		case <-after(time.Second * 30):
 			logrus.Debug(fmt.Sprintf("%s retrying reply", tweet.Id))
-			nextTweet, err = client.TweetReply(ctx, tweet.Id, remaining[0])
+			nextTweet, err = client.TweetReply(ctx, tweet, remaining[0])
 		}
 	}
 

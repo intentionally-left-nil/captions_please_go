@@ -104,7 +104,11 @@ func processTweet(c *cli.Context) error {
 
 func tweetReply(c *cli.Context) error {
 	client := getClient()
-	tweet, err := client.TweetReply(context.Background(), c.String("id"), c.String("message"))
+	parentTweet, err := client.GetTweet(context.Background(), c.String("id"))
+	if err != nil {
+		return err
+	}
+	tweet, err := client.TweetReply(context.Background(), parentTweet, c.String("message"))
 	if err == nil {
 		printJSON(tweet)
 	}

@@ -98,6 +98,7 @@ type Twitter interface {
 	GetTweetRaw(ctx context.Context, tweetID string) (*http.Response, structured_error.StructuredError)
 	GetTweet(ctx context.Context, tweetID string) (*Tweet, structured_error.StructuredError)
 	TweetReply(ctx context.Context, parentTweet *Tweet, message string) (*Tweet, structured_error.StructuredError)
+	UserTimeline(ctx context.Context, screenName string, tweetID string) ([]*Tweet, structured_error.StructuredError)
 }
 
 type Webhook struct {
@@ -293,6 +294,22 @@ func (t *twitter) TweetReply(ctx context.Context, parentTweet *Tweet, message st
 		err = GetJSON(response, &tweet)
 	}
 	return &tweet, structured_error.Wrap(err, structured_error.TwitterError)
+}
+
+func (t *twitter) UserTimeline(ctx context.Context, screenName string, tweetID string) ([]*Tweet, structured_error.StructuredError) {
+	var tweets []*Tweet
+	values := url.Values{
+		"screen_name":     []string{screenName},
+		"since_id":        []string{tweetID},
+		"exclude_replies": []string{"false"},
+		"include_rts":     []string{"true"},
+		"tweet_mode":      []string{"extended"},
+	}
+	response, err := t.get(ctx, "user_timeline", URL+"statuses/user_timeline.json?"+values.Encode())
+	if err == nil {
+		err = GetJSON(response, &tweets)
+	}
+	return tweets, structured_error.Wrap(err, structured_error.TwitterError)
 }
 
 func (t *twitter) get(ctx context.Context, endpoint string, url string) (*http.Response, error) {

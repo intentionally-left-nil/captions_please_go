@@ -46,6 +46,15 @@ func main() {
 					&cli.BoolFlag{Name: "dry-run"},
 				},
 			},
+			{
+				Name:   "timeline",
+				Usage:  "Gets the timeline of a user",
+				Action: getTimeline,
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "name", Required: true},
+					&cli.StringFlag{Name: "since", Required: true},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "verbose"},
@@ -113,6 +122,17 @@ func tweetReply(c *cli.Context) error {
 		printJSON(tweet)
 	}
 	return err
+}
+
+func getTimeline(c *cli.Context) error {
+	client := getClient()
+
+	tweets, err := client.UserTimeline(context.Background(), c.String("name"), c.String("since"))
+	if err != nil {
+		return err
+	}
+	printJSON(tweets)
+	return nil
 }
 
 func onBefore(c *cli.Context) error {

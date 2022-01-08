@@ -2,6 +2,7 @@ package replier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -90,6 +91,18 @@ func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 		case <-after(time.Second * 30):
 			logrus.Debug(fmt.Sprintf("%s retrying reply", tweet.Id))
 			nextTweet, err = client.TweetReply(ctx, tweet, remaining[0])
+			if err != nil && err.Type() == structured_error.DuplicateTweet {
+				// Twitter is really having trouble with their API
+				// Sometimes, we get the following behavior: The first tweet returns CaseOfTheMissingTweet
+				// but... actually it suceeds. Then, after we wait 30 seconds and try again
+				// now twitter is: Actually that tweet exists. So, now we have to go find it
+				// because the first attempt returned an error, not the new tweet Id.
+				logrus.Debug(fmt.Sprintf("%s: First CaseOfTheMissingTweet, now duplicate tweet", tweet.Id))
+				nextTweet, err = findMissingReply(ctx, client, tweet.Id, remaining[0])
+				if err == nil {
+					logrus.Debug(fmt.Sprintf("%s Found the formerly missing, and now duplicate tweet %v", tweet.Id, nextTweet))
+				}
+			}
 		}
 	}
 
@@ -97,6 +110,23 @@ func replyHelper(ctx context.Context, client twitter.Twitter, tweet *twitter.Twe
 		return ReplyResult{Err: err, ParentTweet: tweet, Remaining: remaining}
 	}
 	return replyHelper(ctx, client, nextTweet, remaining[1:])
+}
+
+func findMissingReply(ctx context.Context, client twitter.Twitter, parentTweetId string, text string) (*twitter.Tweet, structured_error.StructuredError) {
+	timelineTweets, err := client.UserTimeline(ctx, "captions_please", parentTweetId)
+	if err != nil {
+		return nil, err
+	}
+	for _, timelineTweet := range timelineTweets {
+		if timelineTweet.ParentTweetId == parentTweetId {
+			if timelineTweet.VisibleText == text {
+				return timelineTweet, nil
+			} else {
+				logrus.Debug(fmt.Sprintf("%s: TimelineTweet has the correct parent, but the text doesn't match: %v", parentTweetId, timelineTweet))
+			}
+		}
+	}
+	return nil, structured_error.Wrap(errors.New("timeline tweet not found"), structured_error.TweetNotFound)
 }
 
 func setReplierState(ctx context.Context, state *replierState) context.Context {

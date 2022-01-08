@@ -8,6 +8,7 @@ const (
 	TwitterError
 	DuplicateTweet
 	TweetTooLong
+	TweetNotFound
 	UserBlockedBot
 	CaseOfTheMissingTweet
 	WrongMediaType

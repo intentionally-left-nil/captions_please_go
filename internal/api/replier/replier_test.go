@@ -36,12 +36,16 @@ func TestReply(t *testing.T) {
 	twitterError := structured_error.Wrap(anError, structured_error.TwitterError)
 	tooLongError := structured_error.Wrap(anError, structured_error.TweetTooLong)
 	missingTweetError := structured_error.Wrap(anError, structured_error.CaseOfTheMissingTweet)
+	duplicateTweetError := structured_error.Wrap(anError, structured_error.DuplicateTweet)
+	tweetNotFoundError := structured_error.Wrap(anError, structured_error.TweetNotFound)
 	invalidMessage := "\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98"
 	tests := []struct {
 		name              string
 		message           string
 		expected          []string
 		replyErrs         []structured_error.StructuredError
+		userTimeline      []*twitter.Tweet
+		userTimelineErr   error
 		shouldCancelEarly bool
 		result            ReplyResult
 	}{
@@ -112,6 +116,39 @@ func TestReply(t *testing.T) {
 			shouldCancelEarly: true,
 		},
 		{
+			name:         "Successfully finds the CaseOfTheMissingTweet in the user timeline",
+			message:      "hello",
+			expected:     []string{"hello", "hello"},
+			replyErrs:    []structured_error.StructuredError{missingTweetError, duplicateTweetError},
+			userTimeline: []*twitter.Tweet{{Id: "1", ParentTweetId: "0", VisibleText: "hello"}},
+			result:       ReplyResult{ParentTweet: &twitter.Tweet{Id: "1"}},
+		},
+		{
+			name:            "Errors when UserTimeline fails during CaseOfTheMissingTweet",
+			message:         "hello",
+			expected:        []string{"hello", "hello"},
+			replyErrs:       []structured_error.StructuredError{missingTweetError, duplicateTweetError},
+			userTimeline:    []*twitter.Tweet{{Id: "1", ParentTweetId: "0", VisibleText: "hello"}},
+			userTimelineErr: missingTweetError,
+			result: ReplyResult{
+				Err:         missingTweetError,
+				ParentTweet: &twitter.Tweet{Id: "0"},
+				Remaining:   []string{"hello"},
+			},
+		},
+		{
+			name:         "Errors if the tweet is not found in the timeline for CaseOfTheMissingTweet",
+			message:      "hello",
+			expected:     []string{"hello", "hello"},
+			replyErrs:    []structured_error.StructuredError{missingTweetError, duplicateTweetError},
+			userTimeline: []*twitter.Tweet{{Id: "1", ParentTweetId: "0", VisibleText: "wrong text"}},
+			result: ReplyResult{
+				Err:         tweetNotFoundError,
+				ParentTweet: &twitter.Tweet{Id: "0"},
+				Remaining:   []string{"hello"},
+			},
+		},
+		{
 			name:      "Gives up after two CaseOfTheMissingTweets",
 			message:   "hello",
 			expected:  []string{"hello", "hello"},
@@ -127,30 +164,35 @@ func TestReply(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			tweetId := 0
-			mockTwitter := &twitter_test.MockTwitter{T: t, TweetReplyMock: func(parentTweet *twitter.Tweet, message string) (*twitter.Tweet, error) {
-				parentAsInt, err := strconv.Atoi(parentTweet.Id)
-				assert.NoError(t, err)
-				if test.replyErrs != nil &&
-					tweetId > 0 &&
-					test.replyErrs[tweetId-1] != nil &&
-					(test.replyErrs[tweetId-1].Type() == structured_error.TweetTooLong || test.replyErrs[tweetId-1].Type() == structured_error.CaseOfTheMissingTweet) {
-					assert.Equal(t, tweetId-1, parentAsInt)
-				} else {
-					assert.Equal(t, tweetId, parentAsInt)
+			mockTwitter := &twitter_test.MockTwitter{T: t,
+				TweetReplyMock: func(parentTweet *twitter.Tweet, message string) (*twitter.Tweet, error) {
+					parentAsInt, err := strconv.Atoi(parentTweet.Id)
+					assert.NoError(t, err)
+					if test.replyErrs != nil &&
+						tweetId > 0 &&
+						test.replyErrs[tweetId-1] != nil &&
+						(test.replyErrs[tweetId-1].Type() == structured_error.TweetTooLong || test.replyErrs[tweetId-1].Type() == structured_error.CaseOfTheMissingTweet) {
+						assert.Equal(t, tweetId-1, parentAsInt)
+					} else {
+						assert.Equal(t, tweetId, parentAsInt)
 
-				}
-				assert.Equal(t, test.expected[tweetId], message)
+					}
+					assert.Equal(t, test.expected[tweetId], message)
 
-				if tweetId < len(test.replyErrs) {
-					err = test.replyErrs[tweetId]
-				} else {
-					err = nil
-				}
+					if tweetId < len(test.replyErrs) {
+						err = test.replyErrs[tweetId]
+					} else {
+						err = nil
+					}
 
-				tweetId++
-				tweet := twitter.Tweet{Id: fmt.Sprintf("%d", tweetId)}
-				return &tweet, err
-			}}
+					tweetId++
+					tweet := twitter.Tweet{Id: fmt.Sprintf("%d", tweetId)}
+					return &tweet, err
+				},
+				UserTimelineMock: func(screenName, tweetID string) ([]*twitter.Tweet, error) {
+					return test.userTimeline, test.userTimelineErr
+				},
+			}
 			defer leaktest.Check(t)()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

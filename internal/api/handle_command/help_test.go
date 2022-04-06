@@ -22,6 +22,7 @@ alt text: See what description the user gave when creating the tweet
 get text: Scan the image for text
 describe: Use AI to create a`,
 		`description of the image
+get everything: Get the user's description, the scanned text, and an AI generated description
 translate: Automatically convert the result to the language code specified. (e.g. translate into ja-jp)`,
 	}
 	tests := []struct {

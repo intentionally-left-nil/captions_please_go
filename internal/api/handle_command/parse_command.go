@@ -138,6 +138,7 @@ func parseEnglishRemoveModifiers(tokens []string) []string {
 		switch token {
 		case "and":
 		case "the":
+		case "get":
 		default:
 			filtered = append(filtered, token)
 		}
@@ -180,6 +181,11 @@ func parseEnglishDirectives(c *command, tokens []string) (remainder []string) {
 			c.translate = true
 			remainder = remainder[1:]
 		case "get":
+			remainder = remainder[1:]
+		case "everything":
+			c.altText = true
+			c.ocr = true
+			c.describe = true
 			remainder = remainder[1:]
 		default:
 			foundToken = false

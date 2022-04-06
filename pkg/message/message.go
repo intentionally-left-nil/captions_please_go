@@ -61,6 +61,7 @@ const (
 	altTextUsageFormat       = "See what description the user gave when creating the tweet"
 	ocrUsageFormat           = "Scan the image for text"
 	describeUsageFormat      = "Use AI to create a description of the image"
+	everythingUsageFormat    = "Get the user's description, the scanned text, and an AI generated description"
 	translateUsageFormat     = "Automatically convert the result to the language code specified. (e.g. translate into ja-jp)"
 	helpUsageFormat          = `Tag @captions_please in a tweet to interpret the images.
 You can customize the response by adding one of the following commands after tagging me:`
@@ -68,6 +69,7 @@ You can customize the response by adding one of the following commands after tag
 	altTextCommandFormat             = "alt text"
 	ocrCommandFormat                 = "get text"
 	describeCommandFormat            = "describe"
+	everythingCommandFormat          = "get everything"
 	translateFormat                  = "translate"
 	noPhotosFormat                   = "I didn't find any photos to interpret, but I appreciate the shoutout! Try \"@captions_please help\" to learn more"
 	wrongMediaFormat                 = "I only know how to interpret photos right now, sorry!"
@@ -108,6 +110,7 @@ func HelpMessage(ctx context.Context) Localized {
 		{altTextCommandFormat, altTextUsageFormat},
 		{ocrCommandFormat, ocrUsageFormat},
 		{describeCommandFormat, describeUsageFormat},
+		{everythingCommandFormat, everythingUsageFormat},
 		{translateFormat, translateUsageFormat},
 	}
 	builder := &strings.Builder{}
@@ -204,11 +207,13 @@ var messages = [...]struct {
 	{"en", altTextUsageFormat, altTextUsageFormat},
 	{"en", ocrUsageFormat, ocrUsageFormat},
 	{"en", describeUsageFormat, describeUsageFormat},
+	{"en", everythingUsageFormat, everythingUsageFormat},
 	{"en", helpUsageFormat, helpUsageFormat},
 	{"en", helpCommandFormat, helpCommandFormat},
 	{"en", altTextCommandFormat, altTextCommandFormat},
 	{"en", ocrCommandFormat, ocrCommandFormat},
 	{"en", describeCommandFormat, describeCommandFormat},
+	{"en", everythingCommandFormat, everythingCommandFormat},
 	{"en", translateFormat, translateFormat},
 	{"en", noPhotosFormat, noPhotosFormat},
 	{"en", wrongMediaFormat, wrongMediaFormat},

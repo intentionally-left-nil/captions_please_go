@@ -113,6 +113,14 @@ func TestParseCommand(t *testing.T) {
 			expected: command{ocr: true, describe: true, tag: language.English},
 		},
 		{
+			command:  "get everything",
+			expected: command{ocr: true, describe: true, altText: true, tag: language.English},
+		},
+		{
+			command:  "get everything in german",
+			expected: command{ocr: true, describe: true, altText: true, tag: language.German},
+		},
+		{
 			command:  "alt text, get text, and describe in english",
 			expected: command{ocr: true, altText: true, describe: true, tag: language.English},
 		},
